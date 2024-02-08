@@ -10,12 +10,12 @@ use ambient_ecs::{
     components, generated::hierarchy::components::parent, query, Debuggable, Description,
     DynSystem, Entity, FrameEvent, Name, Networked, Resource, Store, System, World,
 };
-use ambient_gpu::{gpu::Gpu, mesh_buffer::GpuMesh};
+use ambient_gpu::{gpu::{Gpu,OptionGpu}, mesh_buffer::GpuMesh};
 
 use ambient_native_std::asset_cache::{AssetCache, SyncAssetKey};
 
 use serde::{Deserialize, Serialize};
-
+use parking_lot::Mutex;
 pub mod async_ecs;
 pub mod bounding;
 pub mod camera;
@@ -41,6 +41,8 @@ components!("app", {
     runtime: RuntimeHandle,
     @[Resource]
     gpu: Arc<Gpu>,
+    @[Resource]
+    option_gpu: Arc<Mutex<OptionGpu>>,
     @[Debuggable]
     mesh: Arc<GpuMesh>,
 

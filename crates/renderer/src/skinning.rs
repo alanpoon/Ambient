@@ -68,7 +68,8 @@ impl SkinsBuffer {
                 Some("SkinsBuffer.buffer"),
                 1,
                 wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_SRC
+                     |
+                    wgpu::BufferUsages::COPY_SRC
                     | wgpu::BufferUsages::COPY_DST,
             ),
         }

@@ -266,6 +266,8 @@ impl SyncAssetKey<Arc<MaterialShader>> for RectMaterialShaderKey {
 }
 
 fn get_rect_layout() -> BindGroupDesc<'static> {
+    tracing::info!("tracing get_rect_layout MATERIAL_BIND_GROUP");
+
     BindGroupDesc {
         entries: vec![
             BindGroupLayoutEntry {

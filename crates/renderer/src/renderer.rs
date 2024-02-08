@@ -8,9 +8,10 @@ use super::{
 use crate::{
     bind_groups::BindGroups, get_common_layout, globals_layout, to_linear_format, ShaderDebugParams,
 };
+use parking_lot::Mutex;
 use ambient_core::{asset_cache, camera::*, gpu, player::local_user_id, ui_scene};
 use ambient_ecs::{ArchetypeFilter, Component, World};
-use ambient_gpu::mesh_buffer::MeshBufferKey;
+use ambient_gpu::{gpu::OptionGpu, mesh_buffer::MeshBufferKey};
 use ambient_gpu::{
     gpu::{Gpu, GpuKey},
     mesh_buffer::MeshBuffer,
@@ -23,7 +24,7 @@ use ambient_native_std::{
 };
 use ambient_settings::{RenderMode, SettingsKey};
 use glam::uvec2;
-use std::sync::Arc;
+use std::{option, sync::Arc};
 use tracing::debug_span;
 use wgpu::{BindGroupLayout, BindGroupLayoutEntry, TextureView};
 
@@ -51,8 +52,9 @@ struct RendererResourcesKey;
 impl SyncAssetKey<RendererResources> for RendererResourcesKey {
     fn load(&self, assets: AssetCache) -> RendererResources {
         let gpu = GpuKey.get(&assets);
+        tracing::info!("pre .. primitives get_common_layout");
         let primitives = get_common_layout().get(&assets);
-
+        tracing::info!("primitives get_common_layout");
         let globals_layout = BindGroupDesc {
             entries: [
                 globals_layout().entries,
@@ -62,15 +64,15 @@ impl SyncAssetKey<RendererResources> for RendererResourcesKey {
             .concat(),
             label: GLOBALS_BIND_GROUP.into(),
         };
-
+        tracing::info!("pre .. global");
         let globals_layout = globals_layout.get(&assets);
-
-        let mesh_meta_layout = BindGroupDesc {
+        tracing::info!("post .. global");
+        let mesh_meta_layout: Arc<BindGroupLayout> = BindGroupDesc {
             entries: get_mesh_meta_layout(0).entries,
             label: GLOBALS_BIND_GROUP.into(),
         }
         .get(&assets);
-
+        tracing::info!("post .. mesh_meta_layout");
         RendererResources {
             mesh_meta_layout,
             globals_layout,
@@ -156,6 +158,7 @@ pub trait SubRenderer: std::fmt::Debug + Send + Sync {
     fn render<'a>(
         &'a mut self,
         gpu: &Gpu,
+        option_gpu:&Mutex<OptionGpu>,
         world: &World,
         mesh_buffer: &MeshBuffer,
         encoder: &mut wgpu::CommandEncoder,
@@ -184,8 +187,10 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(gpu: &Gpu, assets: &AssetCache, config: RendererConfig) -> Self {
-        let renderer_resources = RendererResourcesKey.get(assets);
+    pub fn new(gpu: &Gpu,option_gpu:&Mutex<OptionGpu>, assets: &AssetCache, config: RendererConfig) -> Self {
+        tracing::info!("tracing ..render new");
+        let renderer_resources: RendererResources = RendererResourcesKey.get(assets);
+        tracing::info!("tracing ..after rendererResources");
 
         // Need atleast one for array<Camera, SIZE> to be valid
         let shadow_cascades = config.shadow_cascades;
@@ -193,6 +198,7 @@ impl Renderer {
         let shadows = if config.shadows {
             Some(ShadowsRenderer::new(
                 gpu,
+                option_gpu,
                 assets,
                 renderer_resources.clone(),
                 config.clone(),
@@ -200,10 +206,12 @@ impl Renderer {
         } else {
             None
         };
-
+        tracing::info!("tracing ..shadows");
         let settings = SettingsKey.get(assets).render;
+        tracing::info!("tracing ..settings");
 
-        let normals_format = to_linear_format(gpu.swapchain_format()).into();
+        let normals_format = to_linear_format(option_gpu.lock().swapchain_format()).into();
+        tracing::info!("tracing ..normals_format");
 
         Self {
             culling: Culling::new(gpu, assets, config.clone()),
@@ -220,7 +228,7 @@ impl Renderer {
                 config.clone(),
                 OverlayConfig {
                     fs_main: FSMain::Forward,
-                    targets: vec![Some(gpu.swapchain_format().into())],
+                    targets: vec![Some(option_gpu.lock().swapchain_format().into())],
                     resources: renderer_resources.clone(),
                 },
             ),
@@ -232,7 +240,7 @@ impl Renderer {
                         renderer_config: config.clone(),
                         targets: vec![
                             Some(wgpu::ColorTargetState {
-                                format: gpu.swapchain_format(),
+                                format: option_gpu.lock().swapchain_format(),
                                 blend: None,
                                 // NOTE: We had problems where the solid renderer would output alpha values like
                                 // 0.8, because it was using alpha cutoff, and then just outputing the alpha value
@@ -264,7 +272,7 @@ impl Renderer {
                 TransparentRendererConfig {
                     renderer_config: config.clone(),
                     targets: vec![Some(wgpu::ColorTargetState {
-                        format: gpu.swapchain_format(),
+                        format: option_gpu.lock().swapchain_format(),
                         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
@@ -277,6 +285,7 @@ impl Renderer {
             ),
             solids_frame: RenderTarget::new(
                 gpu,
+                option_gpu,
                 uvec2(1, 1),
                 Some(
                     wgpu::TextureUsages::RENDER_ATTACHMENT
@@ -286,6 +295,7 @@ impl Renderer {
             ),
             outlines: Outlines::new(
                 gpu,
+                option_gpu,
                 assets,
                 OutlinesConfig {
                     scene: config.scene,
@@ -304,6 +314,7 @@ impl Renderer {
     pub fn render(
         &mut self,
         gpu: &Gpu,
+        option_gpu:&Mutex<OptionGpu>,
         world: &mut World,
         encoder: &mut wgpu::CommandEncoder,
         post_submit: &mut Vec<PostSubmitFunc>,
@@ -317,6 +328,7 @@ impl Renderer {
             if self.solids_frame.color_buffer.size != target.color_buffer.size {
                 self.solids_frame = RenderTarget::new(
                     gpu,
+                    option_gpu,
                     uvec2(
                         target.color_buffer.size.width,
                         target.color_buffer.size.height,
@@ -496,6 +508,7 @@ impl Renderer {
         if let Some(post_forward) = &mut self.post_forward {
             post_forward.render(
                 gpu,
+                option_gpu,
                 world,
                 &mesh_buffer,
                 encoder,
@@ -565,6 +578,7 @@ impl Renderer {
         if let Some(post_transparent) = &mut self.post_transparent {
             post_transparent.render(
                 gpu,
+                option_gpu,
                 world,
                 &mesh_buffer,
                 encoder,
@@ -652,6 +666,7 @@ fn resource_storage_entry(binding: u32) -> BindGroupLayoutEntry {
         binding,
         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::COMPUTE,
         ty: wgpu::BindingType::Buffer {
+            //ty: wgpu::BufferBindingType::Uniform,
             ty: wgpu::BufferBindingType::Storage { read_only: true },
             has_dynamic_offset: false,
             min_binding_size: None,

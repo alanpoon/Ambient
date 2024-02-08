@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use ambient_gpu::{
-    gpu::{Gpu, DEFAULT_SAMPLE_COUNT},
+    gpu::{Gpu, OptionGpu,DEFAULT_SAMPLE_COUNT},
     shader_module::DEPTH_FORMAT,
     texture::{Texture, TextureView},
 };
 use glam::UVec2;
 use wgpu::{TextureFormat, TextureViewDescriptor};
-
+use parking_lot::Mutex;
 /// TODO: remove in favor of https://docs.rs/wgpu/latest/wgpu/enum.TextureFormat.html#method.add_srgb_suffix after upgrading to wgpu@0.15.2
 pub(crate) fn to_linear_format(format: TextureFormat) -> TextureFormat {
     match format {
@@ -35,13 +35,14 @@ pub struct RenderTarget {
     pub normals_quat_buffer_view: TextureView,
 }
 impl RenderTarget {
-    pub fn new(gpu: &Gpu, size: UVec2, usage: Option<wgpu::TextureUsages>) -> Self {
+    pub fn new(gpu: &Gpu, option_gpu:&Mutex<OptionGpu>,size: UVec2, usage: Option<wgpu::TextureUsages>) -> Self {
         let usage = usage.unwrap_or(
             wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_SRC,
         );
-        let sc_desc = gpu.sc_desc(size);
+        tracing::debug!("option_gpu {:?} size {:?}",option_gpu.lock(),size);
+        let sc_desc = option_gpu.lock().sc_desc(size);
         let depth_buffer = Arc::new(Texture::new(
             gpu,
             &wgpu::TextureDescriptor {

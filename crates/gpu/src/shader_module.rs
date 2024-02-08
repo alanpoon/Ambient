@@ -1,16 +1,22 @@
-use std::{borrow::Cow, collections::BTreeMap, ops::Deref, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, ops::Deref, ptr::null, sync::Arc};
 
 use aho_corasick::AhoCorasick;
 use ambient_native_std::{asset_cache::*, CowStr};
 use ambient_std::topological_sort::{topological_sort, TopologicalSortable};
 use anyhow::Context;
 use itertools::Itertools;
+use jni::objects::JValue;
 use wgpu::{
     BindGroupLayout, BindGroupLayoutEntry, ComputePipelineDescriptor, DepthBiasState, TextureFormat,
 };
 
 use super::gpu::{Gpu, GpuKey, DEFAULT_SAMPLE_COUNT};
-
+use std::ffi::CStr;
+use jni::JNIEnv;
+use jni::objects::JString;
+use jni::sys::jstring;
+use std::ffi::CString;
+use std::convert::TryInto;
 #[derive(Debug, Clone, PartialEq)]
 pub enum WgslValue {
     String(CowStr),
@@ -186,13 +192,14 @@ pub struct BindGroupDesc<'a> {
 impl<'a> SyncAssetKey<Arc<wgpu::BindGroupLayout>> for BindGroupDesc<'a> {
     fn load(&self, assets: AssetCache) -> Arc<wgpu::BindGroupLayout> {
         let gpu = GpuKey.get(&assets);
-
+        tracing::info!("tracing ....{:?}",self.label.clone());
         let layout = gpu
             .device
             .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some(&*self.label),
                 entries: &self.entries,
             });
+        tracing::info!("after tracing ....{:?}",self.label.clone());
 
         Arc::new(layout)
     }
@@ -242,7 +249,7 @@ impl Shader {
     ) -> anyhow::Result<Arc<Self>> {
         let label = label.into();
         let gpu = GpuKey.get(assets);
-
+        tracing::info!("tracing fn gpu");
         let _span = tracing::debug_span!("Shader::from_modules", ?label).entered();
 
         // The complete dependency graph, in the correct order
@@ -267,12 +274,18 @@ impl Shader {
                 let index = *bind_group_index.get(&**group).with_context(|| {
                     format!("Failed to resolve bind group {group} in {}", module.name)
                 })?;
-
+                let mut binding_c = binding.clone();
+                binding_c.ty =wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    //ty:wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                };
                 let desc = &mut bind_groups[index];
                 desc.entries.push(*binding);
             }
         }
-
+        tracing::info!("tracing bind_groups {:?}",bind_groups);
         // Now for the fun part: constructing the binding group layout descriptors
         let bind_group_layouts = bind_groups
             .iter()
@@ -337,9 +350,43 @@ impl Shader {
 
         #[cfg(all(not(target_os = "unknown"), debug_assertions))]
         {
-            let path = format!("tmp/{label}.wgsl");
-            std::fs::create_dir_all("tmp/").unwrap();
+            tracing::info!("tracing file read {:?}",label);
+
+            use jni::objects::JObject;
+            let ctx = ndk_context::android_context();
+            let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
+            let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
+            let env = vm.attach_current_thread().unwrap();
+
+            let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
+
+            let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
+            let path_string = JString::from(path_string);
+            let path_chars = env.get_string_utf_chars(path_string).unwrap();
+            //tracing::info!("tracing path_chars ... {:?}",path_chars);
+
+            //let char_value: char = unsafe { *path_chars as u8 as char }; // Casting to char
+            // unsafe{
+            //     tracing::info!("RAION {}", CStr::from_ptr(path_chars).to_str().unwrap());
+            //     ////data/user/0/rust.a_wgpu/cache
+
+            // }
+            tracing::info!("afeter  release_string_utf_chars");
+            // unsafe{
+            //     env.release_string_utf_chars(path_string, path_chars).unwrap();
+            // }
+            //let rust_string = unsafe { CString::from_raw(path_chars as *mut u8) };
+            let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
+            //let rust_string = rust_string.to_string_lossy().to_string();
+             //let rust_string: String = jstring_to_string(&env,path_string);
+             tracing::info!("after rust_string  {}",rust_string);
+
+            let rust_string = String::from("/data/user/0/rust.a_wgpu/cache");
+            let path = format!("{}/tmp/{label}.wgsl",rust_string);
+            std::fs::create_dir_all(format!("{}/tmp/",rust_string)).unwrap();
             std::fs::write(path, source.as_bytes()).unwrap();
+            tracing::info!("tracing ... write ");
+
         }
 
         let module = gpu
@@ -348,7 +395,7 @@ impl Shader {
                 label: Some(&label),
                 source: wgpu::ShaderSource::Wgsl(source.into()),
             });
-
+        tracing::info!("tracing ... module");
         Ok(Arc::new(Self {
             module,
             bind_group_layouts,
@@ -425,7 +472,7 @@ impl Shader {
                 bind_group_layouts: &self.layouts().iter().map(|v| &**v).collect_vec(),
                 push_constant_ranges: &[],
             });
-
+        tracing::info!("tracing layout");
         let pipeline = gpu
             .device
             .create_compute_pipeline(&ComputePipelineDescriptor {
@@ -434,7 +481,7 @@ impl Shader {
                 module: self.module(),
                 entry_point,
             });
-
+        tracing::info!("tracing pipeline");
         ComputePipeline {
             pipeline,
             shader: self.clone(),

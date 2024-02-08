@@ -31,6 +31,7 @@ impl SyncAssetKey<Arc<MaterialShader>> for TextMaterialShaderKey {
 }
 
 fn get_text_layout() -> BindGroupDesc<'static> {
+    tracing::info!("tracing get_text_layout MATERIAL_BIND_GROUP");
     BindGroupDesc {
         entries: vec![
             wgpu::BindGroupLayoutEntry {

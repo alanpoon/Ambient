@@ -28,6 +28,7 @@ use glam::*;
 use wgpu::BindGroup;
 
 fn get_custom_material_layout() -> BindGroupDesc<'static> {
+    tracing::info!("tracing get_custom_material_layout");
     BindGroupDesc {
         entries: vec![],
         label: MATERIAL_BIND_GROUP.into(),

@@ -28,6 +28,7 @@ impl std::fmt::Debug for StandardShaderKey {
 
 impl SyncAssetKey<Arc<RendererShader>> for StandardShaderKey {
     fn load(&self, assets: AssetCache) -> Arc<RendererShader> {
+        tracing::info!("tracing StandardShaderKey.... MATERIAL_BIND_GROUP");
         let id = format!("standard_shader_{}_{}", self.material_shader.id, self.lit);
         let shader = Shader::new(
             &assets,

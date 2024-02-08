@@ -50,6 +50,7 @@ impl std::fmt::Debug for DecalShaderKey {
 impl SyncAssetKey<Arc<RendererShader>> for DecalShaderKey {
     fn load(&self, assets: AssetCache) -> Arc<RendererShader> {
         let id = format!("decal_shader_{}_{}", self.material_shader.id, self.lit);
+        tracing::info!("tracing decal MATERIAL_BIND_GROUP");
         let shader = Shader::new(
             &assets,
             id.clone(),

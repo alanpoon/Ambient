@@ -14,6 +14,7 @@ use ambient_renderer::{
 use wgpu::{util::DeviceExt, BindGroup};
 
 fn get_loading_layout() -> BindGroupDesc<'static> {
+    tracing::info!("tracing get_loading_layout MATERIAL_BIND_GROUP");
     BindGroupDesc {
         entries: vec![wgpu::BindGroupLayoutEntry {
             binding: 0,

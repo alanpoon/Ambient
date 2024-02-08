@@ -522,7 +522,9 @@ impl<T: Clone + Sync + Send + 'static, K: SyncAssetKey<T>> SyncAssetKeyExt<T> fo
     }
     fn get(&self, assets: &AssetCache) -> T {
         let assets = assets.clone();
-        assets.get_sync(self.key(), |assets| self.load(assets))
+        assets.get_sync(self.key(), |assets| {
+            tracing::info!("tracing sync assetkey {:?}",self.key());
+            self.load(assets)})
     }
     fn try_get(&self, assets: &AssetCache) -> Option<T> {
         let assets = assets.clone();

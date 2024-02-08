@@ -138,6 +138,7 @@ pub struct MeshBuffer {
 
 impl MeshBuffer {
     pub fn new(gpu: &Gpu) -> Self {
+        tracing::info!("tracing mesh storage");
         Self {
             metadata_buffer: TypedBuffer::new(
                 gpu,

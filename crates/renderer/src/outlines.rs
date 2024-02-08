@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ambient_ecs::{copy_component_recursive, ArchetypeFilter, Component, SystemGroup, World};
 use ambient_gpu::{
-    gpu::Gpu,
+    gpu::{Gpu, OptionGpu},
     mesh_buffer::MeshBuffer,
     shader_module::{BindGroupDesc, GraphicsPipeline, GraphicsPipelineInfo, Shader},
     texture::Texture,
@@ -16,6 +16,7 @@ use ambient_native_std::{
 };
 use ambient_settings::{RenderMode, SettingsKey};
 use wgpu::{BindGroupLayoutEntry, BindingType, PrimitiveTopology, ShaderStages};
+use parking_lot::Mutex;
 
 use super::{
     FSMain, RendererCollectState, RendererResources, RendererTarget, ShaderModule, TreeRenderer,
@@ -63,6 +64,7 @@ fn get_outlines_layout() -> BindGroupDesc<'static> {
 impl Outlines {
     pub fn new(
         gpu: &Gpu,
+        option_gpu:&Mutex<OptionGpu>,
         assets: &AssetCache,
         config: OutlinesConfig,
         renderer_config: RendererConfig,
@@ -79,7 +81,7 @@ impl Outlines {
         let pipeline = shader.to_pipeline(
             gpu,
             GraphicsPipelineInfo {
-                targets: &[Some(gpu.swapchain_format().into())],
+                targets: &[Some(option_gpu.lock().swapchain_format().into())],
                 topology: PrimitiveTopology::TriangleStrip,
                 ..Default::default()
             },

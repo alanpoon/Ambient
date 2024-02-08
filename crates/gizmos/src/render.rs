@@ -3,7 +3,7 @@ use std::{fmt::Debug, sync::Arc};
 use ambient_core::{asset_cache, camera::Camera, main_scene, player::local_user_id};
 use ambient_ecs::World;
 use ambient_gpu::{
-    gpu::Gpu,
+    gpu::{Gpu,OptionGpu},
     mesh_buffer::{GpuMesh, MeshBuffer},
     shader_module::{BindGroupDesc, GraphicsPipeline, GraphicsPipelineInfo, Shader, ShaderModule},
     typed_buffer::TypedBuffer,
@@ -24,7 +24,7 @@ use wgpu::{
     BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BlendState, BufferUsages,
     ColorTargetState, ColorWrites, ShaderStages,
 };
-
+use parking_lot::Mutex;
 use super::{gizmos, GizmoPrimitive};
 
 fn get_gizmos_layout() -> BindGroupDesc<'static> {
@@ -34,7 +34,8 @@ fn get_gizmos_layout() -> BindGroupDesc<'static> {
                 binding: 0,
                 visibility: ShaderStages::VERTEX_FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    ty: wgpu::BufferBindingType::Uniform,
+                    //ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
@@ -74,7 +75,8 @@ impl GizmoRenderer {
             gpu,
             Some("Gizmo Buffer"),
             128,
-            BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
+            BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
+            //BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
         );
 
         let layout = get_gizmos_layout().get(assets);
@@ -94,6 +96,7 @@ impl SubRenderer for GizmoRenderer {
     fn render<'a>(
         &'a mut self,
         gpu: &Gpu,
+        option_gpu:&Mutex<OptionGpu>,
         world: &World,
         mesh_buffer: &MeshBuffer,
         encoder: &mut wgpu::CommandEncoder,
@@ -141,7 +144,7 @@ impl SubRenderer for GizmoRenderer {
                 gpu,
                 GraphicsPipelineInfo {
                     targets: &[Some(ColorTargetState {
-                        format: gpu.swapchain_format(),
+                        format: option_gpu.lock().swapchain_format(),
                         blend: Some(BlendState::ALPHA_BLENDING),
                         write_mask: ColorWrites::ALL,
                     })],

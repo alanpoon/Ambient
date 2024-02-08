@@ -342,11 +342,13 @@ pub fn get_mesh_data_module(bind_group_offset: u32) -> Arc<ShaderModule> {
 }
 
 pub fn primitives_layout() -> BindGroupDesc<'static> {
+    tracing::info!("tracing primitives_layout");
     BindGroupDesc {
         entries: vec![wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
             ty: wgpu::BindingType::Buffer {
+                //ty: wgpu::BufferBindingType::Uniform,
                 ty: wgpu::BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
                 min_binding_size: None,
@@ -358,11 +360,14 @@ pub fn primitives_layout() -> BindGroupDesc<'static> {
 }
 
 pub fn get_common_layout() -> BindGroupDesc<'static> {
+    tracing::info!("tracing get_common_layout");
     BindGroupDesc {
         entries: vec![wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
             ty: wgpu::BindingType::Buffer {
+                //ty: wgpu::BufferBindingType::Uniform,
+
                 ty: wgpu::BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
                 min_binding_size: None,
@@ -375,6 +380,7 @@ pub fn get_common_layout() -> BindGroupDesc<'static> {
 
 /// Includes entity locs
 pub fn get_common_module(_: &AssetCache) -> Arc<ShaderModule> {
+    tracing::info!("tracing .. get_common_module");
     Arc::new(
         ShaderModule::new("renderer_common", include_file!("renderer_common.wgsl"))
             .with_binding_desc(get_common_layout())
@@ -392,6 +398,7 @@ pub fn get_globals_module(_assets: &AssetCache, shadow_cascades: u32) -> Arc<Sha
 }
 
 pub fn get_forward_modules(assets: &AssetCache, shadow_cascades: u32) -> Vec<Arc<ShaderModule>> {
+    tracing::info!("tracing ,, get_forward_modules");
     vec![
         get_defs_module(),
         get_mesh_data_module(GLOBALS_BIND_GROUP_SIZE),

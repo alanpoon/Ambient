@@ -210,9 +210,10 @@ var<storage> entity_layout: EntityLayoutBuffer;
                     wgpu::ShaderStages::VERTEX_FRAGMENT | wgpu::ShaderStages::COMPUTE
                 },
                 ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage {
-                        read_only: !(writeable && binding != 0),
-                    },
+                     ty: wgpu::BufferBindingType::Storage {
+                         read_only: !(writeable && binding != 0),
+                     },
+                    //ty:wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },

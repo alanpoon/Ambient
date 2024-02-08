@@ -79,8 +79,9 @@ impl TreeRenderer {
             primitives: TypedMultiBuffer::new(
                 gpu,
                 "TreeRenderer.primitives",
-                wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_DST
+             wgpu::BufferUsages::STORAGE
+                     |
+                    wgpu::BufferUsages::COPY_DST
                     | wgpu::BufferUsages::COPY_SRC
                     | wgpu::BufferUsages::INDIRECT,
                 MultiBufferSizeStrategy::Pow2,
@@ -262,6 +263,7 @@ impl TreeRenderer {
         collect_state: &mut RendererCollectState,
         mesh_buffer: &MeshBuffer,
     ) {
+        tracing::info!("tracing ,,, run_collect");
         let _span = tracing::debug_span!("collect", label = self.label).entered();
         let mut material_layouts = vec![
             MaterialLayout {
@@ -501,6 +503,7 @@ impl TreeRenderer {
         bind_groups: &BindGroups<'a>,
         render_target_size: wgpu::Extent3d,
     ) {
+        tracing::info!("tree_render");
         let primitives_bind_group = if let Some(primitives_bind_group) = &self.primitives_bind_group
         {
             primitives_bind_group

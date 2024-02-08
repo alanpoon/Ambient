@@ -31,6 +31,7 @@ use wgpu::{util::DeviceExt, BindGroup};
 use crate::{TerrainLayers, TERRAIN_BASE};
 
 fn get_terrain_layout() -> BindGroupDesc<'static> {
+    info!("tracing get_terrain_layout MATERIAL_BIND_GROUP");
     BindGroupDesc {
         entries: vec![
             // terrain_params
@@ -135,6 +136,7 @@ pub struct TerrainShaderKey {
 }
 impl SyncAssetKey<Arc<RendererShader>> for TerrainShaderKey {
     fn load(&self, assets: AssetCache) -> Arc<RendererShader> {
+        tracing::info!("tracing TerrainShaderKey");
         let shader = Shader::new(
             &assets,
             "terrrain shader",

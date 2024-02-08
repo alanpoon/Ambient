@@ -7,7 +7,7 @@ use ambient_core::{
 };
 use ambient_ecs::{Component, ECSError, World};
 use ambient_gpu::{
-    gpu::Gpu,
+    gpu::{Gpu, OptionGpu},
     mesh_buffer::MeshBuffer,
     sampler::SamplerKey,
     shader_module::{BindGroupDesc, DEPTH_FORMAT},
@@ -24,7 +24,7 @@ use crate::{
     fog_density, fog_height_falloff, skinning::SkinsBufferKey, GLOBALS_BIND_GROUP,
     MESH_BASE_BINDING, MESH_METADATA_BINDING, MESH_SKIN_BINDING, SKINS_BINDING,
 };
-
+use parking_lot::Mutex;
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 #[allow(dead_code)]
@@ -104,6 +104,7 @@ pub fn globals_layout() -> BindGroupDesc<'static> {
                 binding: 2,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
+                    //ty: wgpu::BufferBindingType::Uniform,
                     ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
                     min_binding_size: None,
@@ -189,6 +190,7 @@ impl ForwardGlobals {
         let shadow_cameras_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("ForwardGlobals.shadow_cameras_buffer"),
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            //usage: wgpu::BufferUsages::COPY_DST,
             size: shadow_cascades as u64 * std::mem::size_of::<ShadowCameraData>() as u64,
             mapped_at_creation: false,
         });
@@ -385,7 +387,7 @@ pub struct ShadowAndUIGlobals {
     bind_group: Option<BindGroup>,
 }
 impl ShadowAndUIGlobals {
-    pub fn new(gpu: &Gpu, layout: Arc<wgpu::BindGroupLayout>) -> Self {
+    pub fn new(gpu: &Gpu,option_gpu:&Mutex<OptionGpu>, layout: Arc<wgpu::BindGroupLayout>) -> Self {
         let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("ShadowGlobals.buffer"),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -396,6 +398,7 @@ impl ShadowAndUIGlobals {
         let shadow_cameras_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("ShadowGlobals.shadow_cameras_buffer"),
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            //usage:  wgpu::BufferUsages::COPY_DST,
             size: std::mem::size_of::<Mat4>() as u64,
             mapped_at_creation: false,
         });
@@ -413,7 +416,7 @@ impl ShadowAndUIGlobals {
         });
 
         let shadow_texture = create_dummy_shadow_texture(gpu);
-        let dummy_prev_frame = RenderTarget::new(gpu, UVec2::ONE, None);
+        let dummy_prev_frame = RenderTarget::new(gpu,option_gpu, UVec2::ONE, None);
         let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor {
             aspect: wgpu::TextureAspect::DepthOnly,
             ..Default::default()

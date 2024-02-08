@@ -23,6 +23,7 @@ use super::super::{Material, MaterialShader, RendererShader, MATERIAL_BIND_GROUP
 use crate::{RendererConfig, StandardShaderKey};
 
 fn get_material_layout() -> BindGroupDesc<'static> {
+    tracing::info!("tracing get_material_layout MATERIAL_BIND_GROUP");
     BindGroupDesc {
         label: MATERIAL_BIND_GROUP.into(),
         entries: vec![

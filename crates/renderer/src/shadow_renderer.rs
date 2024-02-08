@@ -3,7 +3,7 @@ use std::sync::Arc;
 use ambient_core::{camera::Camera, main_scene, player::local_user_id, transform::*};
 use ambient_ecs::{ArchetypeFilter, World};
 use ambient_gpu::{
-    gpu::Gpu,
+    gpu::{Gpu, OptionGpu},
     mesh_buffer::MeshBuffer,
     shader_module::DEPTH_FORMAT,
     texture::{Texture, TextureView},
@@ -15,6 +15,7 @@ use glam::{Mat4, Vec3};
 use itertools::Itertools;
 use smallvec::SmallVec;
 use wgpu::DepthBiasState;
+use parking_lot::Mutex;
 
 use super::{
     cast_shadows, get_active_sun, FSMain, RendererCollectState, RendererResources,
@@ -42,10 +43,12 @@ impl std::fmt::Debug for ShadowsRenderer {
 impl ShadowsRenderer {
     pub fn new(
         gpu: &Gpu,
+        option_gpu:&Mutex<OptionGpu>,
         assets: &AssetCache,
         renderer_resources: RendererResources,
         config: RendererConfig,
     ) -> Self {
+        tracing::info!("tracing ... RendererResources ");
         let shadow_texture = Arc::new(Texture::new(
             gpu,
             &wgpu::TextureDescriptor {
@@ -113,6 +116,7 @@ impl ShadowsRenderer {
                     }),
                     globals: ShadowAndUIGlobals::new(
                         gpu,
+                        option_gpu,
                         renderer_resources.globals_layout.clone(),
                     ),
                     camera: Camera::default(),

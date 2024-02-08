@@ -15,6 +15,7 @@ use super::super::{Material, MaterialShader, RendererShader, MATERIAL_BIND_GROUP
 use crate::{RendererConfig, SharedMaterial, StandardShaderKey};
 
 fn get_material_layout() -> BindGroupDesc<'static> {
+    tracing::info!("tracing .. get_material_layout MATERIAL_BIND_GROUP");
     BindGroupDesc {
         entries: vec![wgpu::BindGroupLayoutEntry {
             binding: 0,
