@@ -9,3 +9,7 @@ repository = "https://github.com/AmbientRun/Ambient"
 
 [dependencies]
 directories = { workspace = true }
+#[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.20"
+ndk-context = "0.1.1"
+log = "0.4.14"
