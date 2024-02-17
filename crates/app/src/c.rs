@@ -1,4 +1,6 @@
-use ambient_app::{App, AppBuilder,AppWrapper};
+//use crate::run_blocker::AppWrapper;
+
+use super::{App, AppBuilder,AppWrapper};
 use ambient_core::{
     camera::active_camera,
     main_scene,
@@ -9,6 +11,11 @@ use ambient_native_std::math::SphericalCoords;
 use ambient_primitives::{Cube, Quad};
 use ambient_renderer::{cast_shadows, color, outline};
 use glam::{vec3, vec4, Vec3, Vec4};
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    window::Window,
+};
 
 async fn init(app: &mut App) {
     let world = &mut app.world;
@@ -29,13 +36,12 @@ async fn init(app: &mut App) {
     .with(main_scene(), ())
     .spawn(world);
 }
+use crate::AsyncInit;
 
-fn main() {
-    env_logger::init();
+pub fn run(mut event_loop: EventLoop<()>) {
+   
     // wgpu_subscriber::initialize_default_subscriber(None);
-    //AppBuilder::simple().block_on(init);
-    AppWrapper::new().run_blocking(init);
-    //AppWrapper::new().block_on(init);
-   //AppBuilder::
+    //AppBuilder::simple_dual().with_event_loop(event_loop).block_on(init);
+    //AppWrapper::new(init).run_blocking(event_loop);
+    AppWrapper::new_with_event_loop(event_loop).run_blocking(init);
 }
-//RUST_LOG=info cargo run --example hello_world --target=aarch64-apple-darwin

@@ -1,0 +1,8 @@
+[general.sentry]
+enabled = true
+dsn = "https://e9aa91729019feba879bce792f32b119@o943373.ingest.sentry.io/4505715308101632"
+
+[render]
+resolution = [800, 600]
+vsync = true
+software_culling = false
