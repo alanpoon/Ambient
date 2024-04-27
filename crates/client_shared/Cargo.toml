@@ -17,6 +17,6 @@ ambient_layout = { path = "../layout/" , version = "0.3.2-nightly-2023-12-29" }
 ambient_debugger = { path = "../debugger/" , version = "0.3.2-nightly-2023-12-29" }
 
 ambient_ecs_editor = { path = "../ecs_editor/" , version = "0.3.2-nightly-2023-12-29" }
-
+tracing = { workspace = true }
 glam = { workspace = true }
 rand = { workspace = true }

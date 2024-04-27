@@ -37,6 +37,10 @@ byteorder = { workspace = true }
 
 erased-serde = "0.3"
 
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.20"
+ndk-context = "0.1.1"
+
 [build-dependencies]
 ambient_package_macro_common = { path = "../../shared_crates/package_macro_common" , version = "0.3.2-nightly-2023-12-29" }
 ambient_sys = { path = "../sys", version = "0.3.2-nightly-2023-12-29" }

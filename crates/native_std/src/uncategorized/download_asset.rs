@@ -76,17 +76,16 @@ impl SyncAssetKey<reqwest::Client> for ReqwestClientKey {
             .unwrap()
     }
 }
-
 /// Download with retries and a global rate limiting sempahore
 pub(crate) async fn download<T: 'static + Send, F: Future<Output = anyhow::Result<T>>>(
     assets: &AssetCache,
     url: impl reqwest::IntoUrl,
     map: impl 'static + Send + Fn(reqwest::Response) -> F,
 ) -> anyhow::Result<T> {
-    let url_str = url.as_str().to_string();
-    let url = url.into_url()?;
+    let mut url_str = url.as_str().to_string();
+    url_str = url_str.replace("127.0.0.1", "10.0.2.2");
+    let url = url::Url::parse(&url_str)?;
     let assets = assets.clone();
-
     // reqwest::Client is not Send on wasm
     wasm_nonsend(move || async move {
         let client = ReqwestClientKey.get(&assets);

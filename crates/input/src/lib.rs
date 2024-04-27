@@ -163,7 +163,15 @@ impl System<Event<'static, ()>> for InputSystem {
                         ),
                     );
                 }
-
+                WindowEvent::Touch ( touch ) => {
+                    let button = MouseButton::Left;
+                    world.resource_mut(world_events()).add_message(
+                        messages::WindowMouseInput::new(
+                            true,
+                            ambient_shared_types::MouseButton::from(button),
+                        ),
+                    );
+                }
                 _ => {}
             },
 

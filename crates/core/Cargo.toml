@@ -31,5 +31,10 @@ flume = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
 
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.20"
+ndk-context = "0.1.1"
+
 [dev-dependencies]
 # tracing-subscriber = { workspace = true }
+

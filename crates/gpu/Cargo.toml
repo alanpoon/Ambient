@@ -36,6 +36,8 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
 cfg-if = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
 jni = "0.20"
 ndk-context = "0.1.1"
 

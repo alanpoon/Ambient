@@ -112,7 +112,7 @@ pub fn GameView(hooks: &mut Hooks, show_debug: bool) -> Element {
                         if w_memory != 0.0 {
                             set_w(w_memory)
                         } else {
-                            set_w(300.0)
+                            set_w(100.0)
                         };
                         ScrollArea::el(
                             ScrollAreaSizing::FitParentWidth,
@@ -177,6 +177,7 @@ pub fn GameView(hooks: &mut Hooks, show_debug: bool) -> Element {
                     .into(),
                 )
         } else {
+            tracing::info!("GameClientWorld");
             GameClientWorld.el()
         },
     ])

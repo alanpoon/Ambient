@@ -1,7 +1,7 @@
 [workspace]
-default-members = ["app"]
-exclude = ["guest", "tmp", "web"]
-members = ["crates/*", "libs/*", "shared_crates/*", "app", "campfire", "schema"]
+#default-members = ["app"]
+exclude = ["guest", "tmp", "web","app"]
+members = ["crates/*", "libs/*", "shared_crates/*", "campfire", "schema"]
 resolver = "2"
 
 [workspace.package]
@@ -24,7 +24,7 @@ wgpu = { version = "0.16.3", features = ["serde", "trace", "replay"] }
 wgpu-types = { version = "0.16", features = ["serde"] }
 winit = { version = "0.28.6", features = ["serde"] }
 futures = { version = "0.3", default-features = false, features = ["std"] }
-tokio = { version = "1.32", default-features = false,features = ["parking_lot"] }
+tokio = { version = "1.36", default-features = false,features = ["full"] }
 bytemuck = { version = "1.14", features = ["derive"] }
 glam = { version = "0.24", features = ["bytemuck", "serde", "rand"] }
 gltf = "1.3.0"
@@ -179,7 +179,8 @@ wasm-bindgen-futures = "0.4"
 # Networking
 #
 time = { version = "0.3", features = ["local-offset"] }
-quinn = { version = "0.10" }
+quinn = { version = "0.10"}
+#quinn = { path="../quinn/quinn"}
 rustls-native-certs = "0.6.3"
 webpki-roots = "0.23.1"
 mikktspace = { git = "https://github.com/gltf-rs/mikktspace" }
@@ -188,9 +189,9 @@ rustls = { version = "0.21.7", features = ["dangerous_configuration", "quic"] }
 rustls-pemfile = "1.0"
 
 # See: https://github.com/hyperium/h3/pull/183
-h3 = { git = "https://github.com/hyperium/h3" }
-h3-webtransport = { git = "https://github.com/hyperium/h3" }
-h3-quinn = { git = "https://github.com/hyperium/h3" }
+h3 = { git = "https://github.com/hyperium/h3" ,rev ="22da9387f19d724852b3bf1dfd7e66f0fd45cb81"}
+h3-webtransport = { git = "https://github.com/hyperium/h3",rev ="22da9387f19d724852b3bf1dfd7e66f0fd45cb81" }
+h3-quinn = { git = "https://github.com/hyperium/h3",rev ="22da9387f19d724852b3bf1dfd7e66f0fd45cb81" }
 http = { version = "0.2.9" }
 
 #

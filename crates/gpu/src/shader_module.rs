@@ -10,11 +10,7 @@ use wgpu::{
 };
 
 use super::gpu::{Gpu, GpuKey, DEFAULT_SAMPLE_COUNT};
-use std::ffi::CStr;
-use jni::JNIEnv;
-use jni::objects::JString;
-use jni::sys::jstring;
-use std::ffi::CString;
+
 use std::convert::TryInto;
 #[derive(Debug, Clone, PartialEq)]
 pub enum WgslValue {
@@ -347,10 +343,14 @@ impl Shader {
         //     std::fs::write(path, source.as_bytes()).unwrap();
         // }
         //#[cfg(all(not(target_os = "unknown"), debug_assertions))]
+        let mut dir_str= String::from("tmp");
+        let mut path = format!("tmp/{label}.wgsl");
         #[cfg(target_os = "android")]
         {
             tracing::info!("tracing file read {:?}",label);
-
+            use std::ffi::CStr;
+            use jni::JNIEnv;
+            use jni::objects::JString;
             use jni::objects::JObject;
             let ctx = ndk_context::android_context();
             let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
@@ -364,16 +364,12 @@ impl Shader {
             let path_chars = env.get_string_utf_chars(path_string).unwrap();
 
             let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
-
-            tracing::info!("after rust_string  {}",rust_string);
-
-            let rust_string = String::from("/data/user/0/rust.a_wgpu/cache");
-            let path = format!("{}/tmp/{label}.wgsl",rust_string);
-            std::fs::create_dir_all(format!("{}/tmp/",rust_string)).unwrap();
-            std::fs::write(path, source.as_bytes()).unwrap();
-            tracing::info!("tracing ... write ");
+            path = format!("{}/tmp/{label}.wgsl",rust_string);
+            dir_str = format!("{}/tmp/",rust_string);
 
         }
+        std::fs::create_dir_all(dir_str).unwrap();
+        std::fs::write(path, source.as_bytes()).unwrap();
         let module = gpu
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {

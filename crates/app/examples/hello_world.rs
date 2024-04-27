@@ -34,7 +34,7 @@ fn main() {
     env_logger::init();
     // wgpu_subscriber::initialize_default_subscriber(None);
     //AppBuilder::simple().block_on(init);
-    AppWrapper::new().run_blocking(init);
+    AppWrapper::new().run_blocking(init,Box::new(||{}));
     //AppWrapper::new().block_on(init);
    //AppBuilder::
 }
