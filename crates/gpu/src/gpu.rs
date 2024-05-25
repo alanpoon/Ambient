@@ -48,6 +48,8 @@ impl Gpu {
 
         let backends = if cfg!(target_os = "windows") {
             wgpu::Backends::VULKAN
+        } else if cfg!(target_os = "android") {
+            wgpu::Backends::VULKAN
         } else if cfg!(target_os = "macos") {
             wgpu::Backends::PRIMARY
         } else if cfg!(target_os = "unknown") {
@@ -76,7 +78,7 @@ impl Gpu {
             .map(|window| unsafe { instance.create_surface(window) })
             .transpose()
             .context("Failed to create surface")?;
-
+        tracing::info!("...surface {:?}",surface);
         #[cfg(not(target_os = "unknown"))]
         {
             tracing::debug!("Available adapters:");
@@ -97,15 +99,17 @@ impl Gpu {
 
         tracing::info!("Using gpu adapter: {:?}", adapter.get_info());
 
-        tracing::debug!("Adapter features:\n{:#?}", adapter.features());
-        let adapter_limits = adapter.limits();
-        tracing::debug!("Adapter limits:\n{:#?}", adapter_limits);
+        tracing::info!("Adapter features:\n{:#?}", adapter.features());
+        let adapter_limits: wgpu::Limits = adapter.limits();
+        tracing::info!("Adapter limits:\n{:#?}", adapter_limits);
 
         cfg_if::cfg_if! {
             if #[cfg(target_os = "macos")] {
                 // The renderer will dispatch 1 indirect draw command for *each* primitive in the
                 // scene, but the data draw data such as index_count, first_instance, etc lives on
                 // the gpu
+                let features = wgpu::Features::empty();
+            } else if #[cfg(target_os = "android")]{
                 let features = wgpu::Features::empty();
             } else if #[cfg(target_os = "unknown")] {
 
@@ -123,26 +127,36 @@ impl Gpu {
 
         tracing::info!("Using device features: {features:?}");
 
+        // let (device, queue) = adapter
+        //     .request_device(
+        //         &wgpu::DeviceDescriptor {
+        //             label: None,
+        //             features: wgpu::Features::default()
+        //                 | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
+        //                 // | wgpu::Features::POLYGON_MODE_LINE
+        //                 | features,
+        //             limits: wgpu::Limits {
+        //                 max_bind_groups: 8,
+        //                 max_storage_buffer_binding_size: adapter_limits
+        //                     .max_storage_buffer_binding_size,
+        //                 ..Default::default()
+        //             },
+        //         },
+        //         None,
+        //     )
+        //     .await
+        //     .context("Failed to request a device")?;
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: wgpu::Features::default()
-                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
-                        // | wgpu::Features::POLYGON_MODE_LINE
-                        | features,
-                    limits: wgpu::Limits {
-                        max_bind_groups: 8,
-                        max_storage_buffer_binding_size: adapter_limits
-                            .max_storage_buffer_binding_size,
-                        ..Default::default()
-                    },
-                },
-                None,
-            )
-            .await
-            .context("Failed to request a device")?;
-
+        .request_device(
+            &wgpu::DeviceDescriptor {
+                label: None,
+                features: features,
+                limits:adapter.limits(),
+            },
+            None,
+        )
+        .await
+        .context("Failed to create device")?;
         tracing::debug!("Device limits:\n{:#?}", device.limits());
 
         let swapchain_format = surface

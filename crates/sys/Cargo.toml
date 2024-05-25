@@ -57,7 +57,7 @@ tokio = { version = "1.32", features = [
     "fs",
 ] }
 tokio-util = { version = "0.7.9", features = ["codec"] }
-arboard = { workspace = true }
+arboard = { version = "3.3.0", path = "../arboard" }
 
 [target.'cfg(target_os = "unknown")'.dev-dependencies]
 wasm-bindgen-test = "0.3"

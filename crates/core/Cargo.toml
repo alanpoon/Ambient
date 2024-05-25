@@ -32,4 +32,8 @@ serde = { workspace = true }
 chrono = { workspace = true }
 
 [dev-dependencies]
+
+[target.'cfg(not(target_os = "unknown"))'.dependencies]
+jni = "0.20"
+ndk-context = "0.1.1"
 # tracing-subscriber = { workspace = true }

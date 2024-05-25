@@ -47,4 +47,4 @@ hotload-includes = ['ambient_native_std/hotload-includes']
 
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
-arboard = { workspace = true }
+arboard = { version = "3.3.0", path = "../arboard" }

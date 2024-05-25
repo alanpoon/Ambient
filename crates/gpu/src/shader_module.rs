@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, ops::Deref, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, ops::Deref, ptr::null,sync::Arc};
 
 use aho_corasick::AhoCorasick;
 use ambient_native_std::{asset_cache::*, CowStr};
@@ -11,6 +11,7 @@ use wgpu::{
 
 use super::gpu::{Gpu, GpuKey, DEFAULT_SAMPLE_COUNT};
 
+use std::convert::TryInto;
 #[derive(Debug, Clone, PartialEq)]
 pub enum WgslValue {
     String(CowStr),
@@ -335,13 +336,40 @@ impl Shader {
             AhoCorasick::new(patterns)?.replace_all(&source, &replace_with)
         };
 
-        #[cfg(all(not(target_os = "unknown"), debug_assertions))]
+        // #[cfg(all(not(target_os = "unknown"), debug_assertions))]
+        // {
+        //     let path = format!("tmp/{label}.wgsl");
+        //     std::fs::create_dir_all("tmp/").unwrap();
+        //     std::fs::write(path, source.as_bytes()).unwrap();
+        // }
+        //#[cfg(all(not(target_os = "unknown"), debug_assertions))]
+        let mut dir_str= String::from("tmp");
+        let mut path = format!("tmp/{label}.wgsl");
+        #[cfg(target_os = "android")]
         {
-            let path = format!("tmp/{label}.wgsl");
-            std::fs::create_dir_all("tmp/").unwrap();
-            std::fs::write(path, source.as_bytes()).unwrap();
-        }
+            tracing::info!("tracing file read {:?}",label);
+            use std::ffi::CStr;
+            use jni::JNIEnv;
+            use jni::objects::JString;
+            use jni::objects::JObject;
+            let ctx = ndk_context::android_context();
+            let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
+            let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
+            let env = vm.attach_current_thread().unwrap();
 
+            let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
+
+            let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
+            let path_string = JString::from(path_string);
+            let path_chars = env.get_string_utf_chars(path_string).unwrap();
+
+            let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
+            path = format!("{}/tmp/{label}.wgsl",rust_string);
+            dir_str = format!("{}/tmp/",rust_string);
+
+        }
+        std::fs::create_dir_all(dir_str).unwrap();
+        std::fs::write(path, source.as_bytes()).unwrap();
         let module = gpu
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {

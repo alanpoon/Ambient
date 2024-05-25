@@ -139,6 +139,10 @@ impl wit::client_input::Host for Bindings {
             {
                 CursorGrabMode::Locked
             }
+            #[cfg(target_os = "android")]
+            {
+                CursorGrabMode::Locked
+            }
         } else {
             CursorGrabMode::None
         };

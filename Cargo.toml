@@ -185,9 +185,9 @@ rustls = { version = "0.21.7", features = ["dangerous_configuration", "quic"] }
 rustls-pemfile = "1.0"
 
 # See: https://github.com/hyperium/h3/pull/183
-h3 = { git = "https://github.com/hyperium/h3" }
-h3-webtransport = { git = "https://github.com/hyperium/h3" }
-h3-quinn = { git = "https://github.com/hyperium/h3" }
+h3 = { git = "https://github.com/hyperium/h3" ,rev ="22da9387f19d724852b3bf1dfd7e66f0fd45cb81"}
+h3-webtransport = { git = "https://github.com/hyperium/h3",rev ="22da9387f19d724852b3bf1dfd7e66f0fd45cb81" }
+h3-quinn = { git = "https://github.com/hyperium/h3",rev ="22da9387f19d724852b3bf1dfd7e66f0fd45cb81" }
 http = { version = "0.2.9" }
 
 #

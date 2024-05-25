@@ -12,8 +12,7 @@ use ambient_core::{
     name, performance_samples, refcount_system, remove_at_time_system, runtime,
     transform::TransformSystem,
     window::{
-        cursor_position, get_window_sizes, window_logical_size, window_physical_size,
-        window_scale_factor, ExitStatus, WindowCtl,
+        self, cursor_position, get_window_sizes, window_logical_size, window_physical_size, window_scale_factor, ExitStatus, WindowCtl
     },
     ClientTimeResourcesSystem, PerformanceSample, RuntimeKey,
 };
@@ -48,7 +47,6 @@ use winit::{
 };
 
 mod renderers;
-
 fn default_title() -> String {
     "ambient".into()
 }
@@ -220,7 +218,26 @@ where
         (self)(app)
     }
 }
+#[cfg(target_os="android")]
+use winit::platform::android::activity::AndroidApp;
+#[cfg(target_os="android")]
+pub trait AsyncInitAndroid<'a> {
+    type Future: 'a + Future<Output = ()>;
+    fn call(self, app: &'a mut App,android_app:AndroidApp) -> Self::Future;
+}
+#[cfg(target_os="android")]
 
+impl<'a, F, Fut> AsyncInitAndroid<'a> for F
+where
+    Fut: 'a + Future<Output = ()>,
+    F: FnOnce(&'a mut App,AndroidApp) -> Fut,
+{
+    type Future = Fut;
+
+    fn call(self, app: &'a mut App,android_app: AndroidApp) -> Self::Future {
+        (self)(app,android_app)
+    }
+}
 impl AppBuilder {
     pub fn new() -> Self {
         Self {
@@ -311,7 +328,7 @@ impl AppBuilder {
         self
     }
 
-    pub async fn build(self) -> anyhow::Result<App> {
+    pub async fn build(self,window:Option<Arc<Window>>) -> anyhow::Result<App> {
         crate::init_all_components();
 
         let runtime = RuntimeHandle::current();
@@ -322,33 +339,33 @@ impl AppBuilder {
 
         let settings = SettingsKey.get(&assets);
 
-        let (window, event_loop) = if self.headless.is_some() {
-            (None, None)
-        } else {
-            let event_loop = self.event_loop.unwrap_or_default();
-            let window = WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize {
-                width: settings.render.resolution().0,
-                height: settings.render.resolution().1,
-            });
-            let window = if let Some(position) = self.window_position_override {
-                window.with_position(winit::dpi::LogicalPosition {
-                    x: position.x,
-                    y: position.y,
-                })
-            } else {
-                window
-            };
-            let window = if let Some(size) = self.window_size_override {
-                window.with_inner_size(winit::dpi::LogicalSize {
-                    width: size.x,
-                    height: size.y,
-                })
-            } else {
-                window
-            };
-            let window = Arc::new(window.build(&event_loop).unwrap());
-            (Some(window), Some(event_loop))
-        };
+        // let (window, event_loop) = if self.headless.is_some() {
+        //     (None, None)
+        // } else {
+        //     //let event_loop = self.event_loop.unwrap_or_default();
+        //     let window = WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize {
+        //         width: settings.render.resolution().0,
+        //         height: settings.render.resolution().1,
+        //     });
+        //     let window = if let Some(position) = self.window_position_override {
+        //         window.with_position(winit::dpi::LogicalPosition {
+        //             x: position.x,
+        //             y: position.y,
+        //         })
+        //     } else {
+        //         window
+        //     };
+        //     let window = if let Some(size) = self.window_size_override {
+        //         window.with_inner_size(winit::dpi::LogicalSize {
+        //             width: size.x,
+        //             height: size.y,
+        //         })
+        //     } else {
+        //         window
+        //     };
+        //     let window = Arc::new(window.build(&event_loop).unwrap());
+        //     (Some(window), Some(event_loop))
+        // };
 
         let (cursor_lock_tx, cursor_lock_rx) = flume::unbounded::<bool>();
 
@@ -489,6 +506,7 @@ impl AppBuilder {
 
         let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
         let gpu = Arc::new(Gpu::with_config(window.as_deref(), true, &settings.render).await?);
+        tracing::info!("settings {:?}",settings);
 
         tracing::debug!("Inserting runtime");
         RuntimeKey.insert(&assets, runtime.clone());
@@ -505,7 +523,7 @@ impl AppBuilder {
                 let headless_size = self.headless.unwrap();
                 (headless_size, headless_size, 1.)
             };
-
+        tracing::info!("window_physical_size {:?},window_logical_size {:?}.{:?}",window_physical_size,window_logical_size,window_scale_factor);
         let app_resources = AppResources {
             gpu: gpu.clone(),
             runtime: runtime.clone(),
@@ -567,7 +585,7 @@ impl AppBuilder {
             world,
             gpu_world_sync_systems: gpu_world_sync_systems(gpu.clone()),
             window_event_systems,
-            event_loop,
+            //event_loop,
 
             fps: FpsCounter::new(),
             #[cfg(feature = "profile")]
@@ -584,34 +602,237 @@ impl AppBuilder {
         })
     }
 
-    /// Runs the app by blocking the main thread
-    #[cfg(not(target_os = "unknown"))]
-    pub fn block_on(self, init: impl for<'x> AsyncInit<'x>) {
-        let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+    // Runs the app by blocking the main thread
+    // #[cfg(not(target_os = "unknown"))]
+    // pub fn block_on(self, init: impl for<'x> AsyncInit<'x>) {
+    //     let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
 
-        rt.block_on(async move {
-            let mut app = self.build().await.unwrap();
+    //     rt.block_on(async move {
+    //         let mut app = self.build().await.unwrap();
 
-            init.call(&mut app).await;
+    //         init.call(&mut app).await;
 
-            app.run_blocking();
-        });
-    }
+    //         app.run_blocking();
+    //     });
+    // }
 
-    /// Finalizes the app and enters the main loop
-    pub async fn run(self, init: impl FnOnce(&mut App, RuntimeHandle)) -> ExitStatus {
-        let mut app = self.build().await.unwrap();
-        let runtime = app.runtime.clone();
-        init(&mut app, runtime);
-        app.run_blocking()
-    }
+    // Finalizes the app and enters the main loop
+    // pub async fn run(self, init: impl FnOnce(&mut App, RuntimeHandle)) -> ExitStatus {
+    //     let mut app = self.build().await.unwrap();
+    //     let runtime = app.runtime.clone();
+    //     init(&mut app, runtime);
+    //     app.run_blocking()
+    // }
 
-    #[inline]
-    pub async fn run_world(self, init: impl FnOnce(&mut World)) -> ExitStatus {
-        self.run(|app, _| init(&mut app.world)).await
-    }
+    // #[inline]
+    // pub async fn run_world(self, init: impl FnOnce(&mut World)) -> ExitStatus {
+    //     self.run(|app, _| init(&mut app.world)).await
+    // }
+}
+/// Creates a 2-dimensional vector.
+// #[inline(always)]
+// pub const fn uvec2(x: u32, y: u32) -> UVec2 {
+//     UVec2::new(x, y)
+// }
+pub struct AppWrapper{
+    pub app : Arc<Mutex<Option<App>>>,
+    pub event_loop: Option<EventLoop<()>>,
+    pub window: Option<Arc<Window>>,
+    pub once:bool,
 }
 
+impl AppWrapper{
+    pub fn new()->AppWrapper{
+        let event_loop = EventLoop::new();
+        let window = WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize {
+            width: 1200,
+            height: 800,
+        });
+        let window = window.build(&event_loop).unwrap();
+        AppWrapper{
+            app:Arc::new(Mutex::new(None)),
+            event_loop:Some(event_loop),
+            window:Some(Arc::new(window)),
+            once:false
+        }
+    }
+    pub fn new_with_event_loop(event_loop:EventLoop<()>)->AppWrapper{
+        let window = WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize {
+            width: 1200,
+            height: 800,
+        });
+        let window = window.build(&event_loop).unwrap();
+        AppWrapper{
+            app:Arc::new(Mutex::new(None)),
+            event_loop:Some(event_loop),
+            window:Some(Arc::new(window)),
+            once:false
+        }
+    }
+    #[cfg(not(target_os="android"))]
+    pub fn run_blocking(mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static,box_c:Box<dyn Fn()>) {
+        if let Some(event_loop) = self.event_loop.take() {
+            event_loop.run(move |event, _, control_flow| {
+                // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
+                // but https://github.com/rust-windowing/winit/issues/1968 restricts us
+                if let Event::Resumed = event{
+                    if self.once{
+                        return
+                    }
+                    tracing::info!("Event::Resumed");
+                    let window = self.window.clone();
+                    let app_ = self.app.clone();
+                    let i_c = init.clone();
+                    let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+                    let runtime = rt.handle();
+                    let assets: AssetCache = AssetCache::new(runtime.clone());
+                    let _settings = SettingsKey.get(&assets);
+                    // use ambient_physics::physx::PhysicsKey;
+                    // PhysicsKey.get(&assets); // Load physics
+
+                    box_c();
+                    tracing::info!("nnn before");
+                    std::thread::spawn( move||{
+                        // thread code
+                        rt.block_on(async move {
+                            let mut app = AppBuilder::simple().build(window).await.unwrap();
+
+                            i_c.call(&mut app).await;
+                            *app_.lock() = Some(app);
+                            use tokio::time::{sleep, Duration};
+                            loop{
+                                sleep(Duration::new(20,0)).await;
+                            }
+                        });
+                    });
+                    tracing::info!("nnn done");
+                    self.once = true;
+                }else{
+                    let app_ = self.app.clone();
+                    let mut app_ = app_.lock();
+                    if let Some(ref mut app) = *app_{
+                        if let Event::WindowEvent {
+                            window_id,
+                            event:
+                                WindowEvent::ScaleFactorChanged {
+                                    new_inner_size,
+                                    scale_factor,
+                                },
+                        } = &event
+                        {
+
+                            *app.world.resource_mut(window_scale_factor()) = *scale_factor;
+                            app.handle_static_event(
+                                &Event::WindowEvent {
+                                    window_id: *window_id,
+                                    event: WindowEvent::Resized(**new_inner_size),
+                                },
+                                control_flow,
+                            );
+                        } else if let Some(event) = event.to_static() {
+                            app.handle_static_event(&event, control_flow);
+                        }
+                    }
+
+                }
+
+            });
+        } else {
+            // Fake event loop in headless mode
+            loop {
+                let mut control_flow = ControlFlow::default();
+                //let exit_status =
+                    //self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
+                if control_flow == ControlFlow::Exit {
+                    //return exit_status;
+                }
+            }
+        }
+    }
+    #[cfg(target_os="android")]
+    pub fn run_blocking(mut self,init: impl for<'x> AsyncInitAndroid<'x>  +Copy+ Clone+Send+'static,android_app:AndroidApp,box_c:Box<dyn Fn()>) {
+        if let Some(event_loop) = self.event_loop.take() {
+            event_loop.run(move |event: Event<()>, _, control_flow| {
+                // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
+                // but https://github.com/rust-windowing/winit/issues/1968 restricts us
+                if let Event::Resumed = event {
+                    if self.once{
+                        return
+                    }
+                    let window = self.window.clone();
+                    let app_ = self.app.clone();
+                    let android_app_c = android_app.clone();
+                    let i_c = init.clone();
+                    let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+                    let runtime = rt.handle();
+                    let assets: AssetCache = AssetCache::new(runtime.clone());
+                    let _settings = SettingsKey.get(&assets);
+                    box_c();
+                    let headless = Some(uvec2(1200, 800));
+                    std::thread::spawn( move||{
+                        // thread code
+                        rt.block_on(async move {
+                            let mut app = AppBuilder::new()
+                                .ui_renderer(true)
+                                .with_asset_cache(assets)
+                                .headless(headless)
+                                .update_title_with_fps_stats(false)
+                                .build(window).await.unwrap();
+
+                            i_c.call(&mut app,android_app_c).await;
+                            *app_.lock() = Some(app);
+                            use tokio::time::{sleep, Duration};
+                            loop{
+                                sleep(Duration::new(20,0)).await;
+                            }
+                        });
+                    });
+                    tracing::info!("nnn done");
+                    self.once = true;
+                }else{
+
+                    let app_ = self.app.clone();
+                    let mut app_ = app_.lock();
+                    if let Some(ref mut app) = *app_{
+                        if let Event::WindowEvent {
+                            window_id,
+                            event:
+                                WindowEvent::ScaleFactorChanged {
+                                    new_inner_size,
+                                    scale_factor,
+                                },
+                        } = &event
+                        {
+
+                            *app.world.resource_mut(window_scale_factor()) = *scale_factor;
+                            app.handle_static_event(
+                                &Event::WindowEvent {
+                                    window_id: *window_id,
+                                    event: WindowEvent::Resized(**new_inner_size),
+                                },
+                                control_flow,
+                            );
+                        } else if let Some(event) = event.to_static() {
+                            app.handle_static_event(&event, control_flow);
+                        }
+                    }
+
+                }
+
+            });
+        } else {
+            // Fake event loop in headless mode
+            loop {
+                let mut control_flow = ControlFlow::default();
+                //let exit_status =
+                    //self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
+                if control_flow == ControlFlow::Exit {
+                    //return exit_status;
+                }
+            }
+        }
+    }
+}
 pub struct App {
     pub world: World,
     pub ctl_rx: flume::Receiver<WindowCtl>,
@@ -620,7 +841,7 @@ pub struct App {
     pub window_event_systems: SystemGroup<Event<'static, ()>>,
     pub runtime: RuntimeHandle,
     pub window: Option<Arc<Window>>,
-    event_loop: Option<EventLoop<()>>,
+    //event_loop: Option<EventLoop<()>>,
     fps: FpsCounter,
     #[cfg(feature = "profile")]
     _puffin: Option<puffin_http::Server>,
@@ -713,44 +934,60 @@ impl App {
         });
     }
 
-    pub fn run_blocking(mut self) -> ExitStatus {
-        if let Some(event_loop) = self.event_loop.take() {
-            event_loop.run(move |event, _, control_flow| {
-                // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
-                // but https://github.com/rust-windowing/winit/issues/1968 restricts us
-                if let Event::WindowEvent {
-                    window_id,
-                    event:
-                        WindowEvent::ScaleFactorChanged {
-                            new_inner_size,
-                            scale_factor,
-                        },
-                } = &event
-                {
-                    *self.world.resource_mut(window_scale_factor()) = *scale_factor;
-                    self.handle_static_event(
-                        &Event::WindowEvent {
-                            window_id: *window_id,
-                            event: WindowEvent::Resized(**new_inner_size),
-                        },
-                        control_flow,
-                    );
-                } else if let Some(event) = event.to_static() {
-                    self.handle_static_event(&event, control_flow);
-                }
-            });
-        } else {
-            // Fake event loop in headless mode
-            loop {
-                let mut control_flow = ControlFlow::default();
-                let exit_status =
-                    self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
-                if control_flow == ControlFlow::Exit {
-                    return exit_status;
-                }
-            }
-        }
-    }
+    // pub fn run_blocking(mut self,init: impl for<'x> AsyncInit<'x>) -> ExitStatus {
+    //     if let Some(event_loop) = self.event_loop.take() {
+    //         let init_c = Arc::new(Box::new(init));
+    //         event_loop.run(move |event, _, control_flow| {
+    //             // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
+    //             // but https://github.com/rust-windowing/winit/issues/1968 restricts us
+    //             if let Event::Resumed = event{
+    //                 let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+    //                 let app_ = Arc::new(Mutex::new(None));
+    //                 let app_c = app_.clone();
+    //                 let init_c = init_c.clone();
+    //                 rt.block_on(async move {
+    //                     let mut app = AppBuilder::simple().build().await.unwrap();
+    //                     *app_c.lock() = Some(app);
+
+    //                 });
+    //                 let app =app_.lock();
+    //                 //init.call(app).await;
+    //             }else{
+    //                 if let Event::WindowEvent {
+    //                     window_id,
+    //                     event:
+    //                         WindowEvent::ScaleFactorChanged {
+    //                             new_inner_size,
+    //                             scale_factor,
+    //                         },
+    //                 } = &event
+    //                 {
+    //                     *self.world.resource_mut(window_scale_factor()) = *scale_factor;
+    //                     self.handle_static_event(
+    //                         &Event::WindowEvent {
+    //                             window_id: *window_id,
+    //                             event: WindowEvent::Resized(**new_inner_size),
+    //                         },
+    //                         control_flow,
+    //                     );
+    //                 } else if let Some(event) = event.to_static() {
+    //                     self.handle_static_event(&event, control_flow);
+    //                 }
+    //             }
+
+    //         });
+    //     } else {
+    //         // Fake event loop in headless mode
+    //         loop {
+    //             let mut control_flow = ControlFlow::default();
+    //             let exit_status =
+    //                 self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
+    //             if control_flow == ControlFlow::Exit {
+    //                 return exit_status;
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn handle_static_event(
         &mut self,

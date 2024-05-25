@@ -75,7 +75,7 @@ impl<T: AsPxActor + 'static> PxActor for T {
     }
     /// Note; physx doesn't copy the string, so the string needs to be kept alive somewhere else
     fn set_name(&self, name: &CString) {
-        unsafe { physx_sys::PxActor_setName_mut(self.as_actor().0, name.as_ptr()) }
+        unsafe { physx_sys::PxActor_setName_mut(self.as_actor().0, name.as_ptr() as *const i8) }
     }
 }
 
