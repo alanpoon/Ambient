@@ -6,7 +6,8 @@ use ambient_ecs::{
 };
 use itertools::Itertools;
 use yaml_rust::YamlEmitter;
-
+#[cfg(target_os="android")]
+use ambient_dirs::dirs;
 pub use ambient_ecs::generated::hierarchy::components::{children, parent};
 
 use crate::name;
@@ -122,25 +123,27 @@ pub fn dump_world_hierarchy_to_tmp_file(world: &World) {
     use std::{fs::File, path::PathBuf};
 
     use ambient_native_std::asset_cache::SyncAssetKeyExt;
-    let mut dir_str = String::from("tmp");
+    //let mut dir_str = String::from("tmp");
+    let mut dir_str = PathBuf::from("tmp");
     #[cfg(target_os = "android")]
     {
-    use jni::objects::JObject;
-    use jni::objects::JString;
-    use std::ffi::CStr;
-    let ctx = ndk_context::android_context();
-    let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
-    let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
-    let env = vm.attach_current_thread().unwrap();
+    // use jni::objects::JObject;
+    // use jni::objects::JString;
+    // use std::ffi::CStr;
+    // let ctx = ndk_context::android_context();
+    // let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
+    // let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
+    // let env = vm.attach_current_thread().unwrap();
 
-    let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
+    // let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
 
-    let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
-    let path_string = JString::from(path_string);
-    let path_chars = env.get_string_utf_chars(path_string).unwrap();
+    // let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
+    // let path_string = JString::from(path_string);
+    // let path_chars = env.get_string_utf_chars(path_string).unwrap();
 
-    let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
-    dir_str = format!("{}/tmp",rust_string);
+    // let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
+    // dir_str = format!("{}/tmp",rust_string);
+       dir_str = dirs().join("tmp");
     }
     let cache_dir = world
         .resource_opt(crate::asset_cache())

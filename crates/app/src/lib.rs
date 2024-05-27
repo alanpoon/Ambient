@@ -45,7 +45,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{CursorGrabMode, Fullscreen, Window, WindowBuilder},
 };
-
+static mut QUIT:bool = false;
 mod renderers;
 fn default_title() -> String {
     "ambient".into()
@@ -640,7 +640,22 @@ pub struct AppWrapper{
     pub window: Option<Arc<Window>>,
     pub once:bool,
 }
-
+#[cfg(target_os = "android")]
+extern crate jni;
+#[cfg(target_os = "android")]
+use jni::objects::JClass;
+#[cfg(target_os = "android")]
+use jni::sys::jstring;
+#[cfg(target_os = "android")]
+use jni::JNIEnv;
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "C" fn Java_dev_rustropy_wry2_SecondActivity_closeActivity(env: JNIEnv, _class: JClass){
+    tracing::info!("closing quit = true");
+   unsafe{
+    QUIT = true;
+   }
+}
 impl AppWrapper{
     pub fn new()->AppWrapper{
         let event_loop = EventLoop::new();
@@ -671,7 +686,10 @@ impl AppWrapper{
     }
     #[cfg(not(target_os="android"))]
     pub fn run_blocking(mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static,box_c:Box<dyn Fn()>) {
+        use tracing::event;
+
         if let Some(event_loop) = self.event_loop.take() {
+            let mut quit= false;
             event_loop.run(move |event, _, control_flow| {
                 // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
                 // but https://github.com/rust-windowing/winit/issues/1968 restricts us
@@ -692,6 +710,7 @@ impl AppWrapper{
 
                     box_c();
                     tracing::info!("nnn before");
+
                     std::thread::spawn( move||{
                         // thread code
                         rt.block_on(async move {
@@ -700,7 +719,7 @@ impl AppWrapper{
                             i_c.call(&mut app).await;
                             *app_.lock() = Some(app);
                             use tokio::time::{sleep, Duration};
-                            loop{
+                            while !quit{
                                 sleep(Duration::new(20,0)).await;
                             }
                         });
@@ -729,8 +748,17 @@ impl AppWrapper{
                                 },
                                 control_flow,
                             );
-                        } else if let Some(event) = event.to_static() {
-                            app.handle_static_event(&event, control_flow);
+                        } else if let Some(event_) = event.to_static() {
+                            if let Event::WindowEvent {window_id,  event } = event_.clone(){
+                                match event{
+                                    WindowEvent::Destroyed =>{
+                                        quit = true;
+                                        *control_flow = ControlFlow::Exit;
+                                    }
+                                    _=>{}
+                                }
+                            }
+                            app.handle_static_event(&event_, control_flow);
                         }
                     }
 
@@ -782,7 +810,10 @@ impl AppWrapper{
                             i_c.call(&mut app,android_app_c).await;
                             *app_.lock() = Some(app);
                             use tokio::time::{sleep, Duration};
-                            loop{
+                            let quit = unsafe{
+                                QUIT
+                            };
+                            while !quit{
                                 sleep(Duration::new(20,0)).await;
                             }
                         });
@@ -813,6 +844,16 @@ impl AppWrapper{
                                 control_flow,
                             );
                         } else if let Some(event) = event.to_static() {
+                            //tracing::info!("nnn events {:?}",event.clone());
+                            if let Event::WindowEvent {window_id,  event } = event.clone(){
+                                match event{
+                                    WindowEvent::Destroyed =>{
+                                        tracing::info!("nnn Destroyed");
+                                        *control_flow = ControlFlow::Exit;
+                                    }
+                                    _=>{}
+                                }
+                            }
                             app.handle_static_event(&event, control_flow);
                         }
                     }
@@ -1009,7 +1050,13 @@ impl App {
         world.resource(gpu()).device.poll(wgpu::Maintain::Poll);
 
         self.window_event_systems.run(world, event);
-
+        let quit =unsafe {
+            QUIT
+        };
+        if quit{
+            *control_flow = ControlFlow::Exit;
+            return ExitStatus::SUCCESS
+        }
         match event {
             Event::MainEventsCleared => {
                 let frame_start = Instant::now();
@@ -1157,7 +1204,7 @@ impl App {
                     }
                 }
                 WindowEvent::CloseRequested => {
-                    tracing::debug!("Closing...");
+                    tracing::info!("Closing...");
                     *control_flow = ControlFlow::Exit;
                 }
                 WindowEvent::KeyboardInput { input, .. } => {
@@ -1186,6 +1233,10 @@ impl App {
                             .set(world.resource_entity(), cursor_position(), p)
                             .unwrap();
                     }
+                }
+                WindowEvent::Destroyed => {
+                    tracing::info!("Destroyed...");
+                    *control_flow = ControlFlow::Exit;
                 }
                 _ => {}
             },

@@ -13,6 +13,6 @@ lazy_static = "1.4.0"
 
 #[target.'cfg(not(target_os = "unknown"))'.dependencies]
 [target.'cfg(target_os = "android")'.dependencies]
-android_activity = "0.4.3"
+android-activity = "0.4.3"
 #jni = "0.20"
 #ndk-context = "0.1.1"

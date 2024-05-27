@@ -765,29 +765,32 @@ impl World {
     }
     #[cfg(not(target_os = "unknown"))]
     pub fn dump_to_tmp_file(&self) {
-        let mut dir_str = String::from("tmp");
+        use std::path::PathBuf;
+
+        let mut dir_str = PathBuf::from("tmp");
         #[cfg(target_os = "android")]
         {
-        use jni::objects::JObject;
-        use jni::objects::JString;
-        use std::ffi::CStr;
-        let ctx = ndk_context::android_context();
-        let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
-        let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
-        let env = vm.attach_current_thread().unwrap();
+        // use jni::objects::JObject;
+        // use jni::objects::JString;
+        // use std::ffi::CStr;
+        // let ctx = ndk_context::android_context();
+        // let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
+        // let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
+        // let env = vm.attach_current_thread().unwrap();
 
-        let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
+        // let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
 
-        let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
-        let path_string = JString::from(path_string);
-        let path_chars = env.get_string_utf_chars(path_string).unwrap();
+        // let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
+        // let path_string = JString::from(path_string);
+        // let path_chars = env.get_string_utf_chars(path_string).unwrap();
 
-        let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
-        dir_str = format!("{}/tmp",rust_string);
+        // let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
+        // dir_str = format!("{}/tmp",rust_string);
+            dir_str = ambient_dirs::dirs().join("tmp");
         }
 
         std::fs::create_dir_all(&dir_str).ok();
-        let mut f = std::fs::File::create(format!("{}/ecs.txt",dir_str)).expect("Unable to create file");
+        let mut f = std::fs::File::create(format!("{}/ecs.txt",dir_str.as_path().to_string_lossy())).expect("Unable to create file");
         self.dump(&mut f);
         tracing::info!("Wrote ecs to tmp/ecs.txt");
     }

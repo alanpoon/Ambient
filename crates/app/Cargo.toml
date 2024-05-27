@@ -70,3 +70,6 @@ wasm-bindgen = { workspace = true }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
 thread-priority = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21.1"

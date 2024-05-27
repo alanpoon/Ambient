@@ -1,6 +1,9 @@
 use std::{path::PathBuf, sync::OnceLock};
+#[cfg(target_os = "android")]
 use lazy_static::lazy_static;
+#[cfg(target_os = "android")]
 use std::sync::{Arc,Mutex};
+#[cfg(target_os = "android")]
 use android_activity::AndroidApp;
 #[cfg(target_os = "android")]
 lazy_static!{
@@ -9,29 +12,42 @@ lazy_static!{
 use directories::ProjectDirs;
 #[cfg(target_os = "android")]
 pub fn init(android:AndroidApp){
-    ANDROID_APP.lock().unwrap = android;
+    *ANDROID_APP.lock().unwrap() = Some(android);
 }
-
+#[cfg(target_os = "android")]
+pub fn dirs()->PathBuf{
+    if let Some(ref a)=*ANDROID_APP.lock().unwrap(){
+        a.clone().internal_data_path().unwrap()
+    }else{
+        PathBuf::new()
+    }
+}
 pub fn settings_path() -> PathBuf {
     #[cfg(target_os = "android")]
     {
-    use jni::objects::JObject;
-    use jni::objects::JString;
-    use std::ffi::CStr;
-    let ctx = ndk_context::android_context();
-    let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
-    let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
-    let env = vm.attach_current_thread().unwrap();
+    // use jni::objects::JObject;
+    // use jni::objects::JString;
+    // use std::ffi::CStr;
+    // let ctx = ndk_context::android_context();
+    // let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
+    // let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
+    // let env = vm.attach_current_thread().unwrap();
 
-    let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
+    // let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
 
-    let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
-    let path_string = JString::from(path_string);
-    let path_chars = env.get_string_utf_chars(path_string).unwrap();
+    // let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
+    // let path_string = JString::from(path_string);
+    // let path_chars = env.get_string_utf_chars(path_string).unwrap();
 
-    let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
-    let cd_c = PathBuf::from(rust_string);
-    cd_c.join("config").join("settings.toml")
+    // let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
+    // let cd_c = PathBuf::from(rust_string);
+    // cd_c.join("config").join("settings.toml")
+    if let Some(ref android_app) = *ANDROID_APP.lock().unwrap(){
+        let internal_path = android_app.internal_data_path().unwrap();
+        internal_path.join("config").join("settings.toml")
+    }else{
+        project_dirs().config_dir().to_owned().join("settings.toml")
+    }
     }
     #[cfg(not(target_os = "android"))]
     {

@@ -1,5 +1,5 @@
 use std::{borrow::Cow, collections::BTreeMap, ops::Deref, ptr::null,sync::Arc};
-
+use std::path::PathBuf;
 use aho_corasick::AhoCorasick;
 use ambient_native_std::{asset_cache::*, CowStr};
 use ambient_std::topological_sort::{topological_sort, TopologicalSortable};
@@ -343,30 +343,32 @@ impl Shader {
         //     std::fs::write(path, source.as_bytes()).unwrap();
         // }
         //#[cfg(all(not(target_os = "unknown"), debug_assertions))]
-        let mut dir_str= String::from("tmp");
-        let mut path = format!("tmp/{label}.wgsl");
+        let mut dir_str= PathBuf::from("tmp");
+        let mut path = PathBuf::from(format!("tmp/{label}.wgsl"));
         #[cfg(target_os = "android")]
         {
-            tracing::info!("tracing file read {:?}",label);
-            use std::ffi::CStr;
-            use jni::JNIEnv;
-            use jni::objects::JString;
-            use jni::objects::JObject;
-            let ctx = ndk_context::android_context();
-            let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
-            let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
-            let env = vm.attach_current_thread().unwrap();
+            // tracing::info!("tracing file read {:?}",label);
+            // use std::ffi::CStr;
+            // use jni::JNIEnv;
+            // use jni::objects::JString;
+            // use jni::objects::JObject;
+            // let ctx = ndk_context::android_context();
+            // let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.unwrap();
+            // let context: JObject<'_> = unsafe { JObject::from_raw(ctx.context().cast()) };
+            // let env = vm.attach_current_thread().unwrap();
 
-            let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
+            // let cache_dir = env.call_method(context,  "getCacheDir", "()Ljava/io/File;",&[]).unwrap().l().unwrap();
 
-            let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
-            let path_string = JString::from(path_string);
-            let path_chars = env.get_string_utf_chars(path_string).unwrap();
+            // let path_string = env.call_method(cache_dir, "getPath", "()Ljava/lang/String;", &[]).unwrap().l().unwrap();
+            // let path_string = JString::from(path_string);
+            // let path_chars = env.get_string_utf_chars(path_string).unwrap();
 
-            let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
-            path = format!("{}/tmp/{label}.wgsl",rust_string);
-            dir_str = format!("{}/tmp/",rust_string);
-
+            // let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
+            // path = format!("{}/tmp/{label}.wgsl",rust_string);
+            // dir_str = format!("{}/tmp/",rust_string);
+            let d = ambient_dirs::dirs();
+            path = d.join("tmp").join(format!("{label}.wgsl"));
+            dir_str = d.join("tmp");
         }
         std::fs::create_dir_all(dir_str).unwrap();
         std::fs::write(path, source.as_bytes()).unwrap();

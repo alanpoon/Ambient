@@ -255,6 +255,7 @@ dependencies = [
  "anyhow",
  "flume 0.11.0",
  "glam 0.24.2",
+ "jni 0.21.1",
  "parking_lot",
  "profiling",
  "puffin",
@@ -459,6 +460,7 @@ dependencies = [
 name = "ambient_core"
 version = "0.3.1"
 dependencies = [
+ "ambient_dirs",
  "ambient_ecs",
  "ambient_gpu",
  "ambient_gpu_ecs",
@@ -469,8 +471,6 @@ dependencies = [
  "flume 0.11.0",
  "glam 0.24.2",
  "itertools",
- "jni 0.20.0",
- "ndk-context",
  "ordered-float 3.9.1",
  "profiling",
  "serde",
@@ -552,16 +552,16 @@ dependencies = [
 name = "ambient_dirs"
 version = "0.3.1"
 dependencies = [
+ "android-activity",
  "directories",
- "jni 0.20.0",
  "lazy_static",
- "ndk-context",
 ]
 
 [[package]]
 name = "ambient_ecs"
 version = "0.3.1"
 dependencies = [
+ "ambient_dirs",
  "ambient_native_std",
  "ambient_package_macro_common",
  "ambient_package_rt",
@@ -578,8 +578,6 @@ dependencies = [
  "erased-serde",
  "glam 0.24.2",
  "itertools",
- "jni 0.20.0",
- "ndk-context",
  "once_cell",
  "parking_lot",
  "paste",
@@ -756,6 +754,7 @@ name = "ambient_gpu"
 version = "0.3.1"
 dependencies = [
  "aho-corasick",
+ "ambient_dirs",
  "ambient_native_std",
  "ambient_settings",
  "ambient_std",
@@ -769,9 +768,7 @@ dependencies = [
  "glam 0.24.2",
  "image",
  "itertools",
- "jni 0.20.0",
  "ndarray",
- "ndk-context",
  "ordered-float 3.9.1",
  "parking_lot",
  "serde",
@@ -4475,16 +4472,18 @@ dependencies = [
 
 [[package]]
 name = "jni"
-version = "0.20.0"
+version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "039022cdf4d7b1cf548d31f60ae783138e5fd42013f6271049d7df7afadef96c"
+checksum = "1a87aa2bb7d2af34197c04845522473242e1aa17c12f4935d5856491a7fb8c97"
 dependencies = [
  "cesu8",
+ "cfg-if",
  "combine",
  "jni-sys",
  "log",
  "thiserror",
  "walkdir",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
