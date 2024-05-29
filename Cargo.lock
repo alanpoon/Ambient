@@ -963,6 +963,7 @@ dependencies = [
  "ambient_asset_cache",
  "ambient_cb",
  "ambient_color",
+ "ambient_dirs",
  "ambient_friendly_id",
  "ambient_git_rev",
  "ambient_math",

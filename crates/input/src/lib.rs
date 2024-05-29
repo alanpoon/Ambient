@@ -6,7 +6,7 @@ use ambient_ecs::{
 };
 use glam::{vec2, Vec2};
 use serde::{Deserialize, Serialize};
-use winit::event::ModifiersState;
+use winit::event::{ModifiersState, TouchPhase};
 pub use winit::event::{
     DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode,
     WindowEvent,
@@ -164,13 +164,37 @@ impl System<Event<'static, ()>> for InputSystem {
                     );
                 }
                 WindowEvent::Touch ( touch ) => {
+                    tracing::info!("touching {:?}",touch);
                     let button = MouseButton::Left;
-                    world.resource_mut(world_events()).add_message(
-                        messages::WindowMouseInput::new(
-                            true,
-                            ambient_shared_types::MouseButton::from(button),
-                        ),
-                    );
+                    match touch.phase{
+                        TouchPhase::Started=>{
+
+                            world.resource_mut(world_events()).add_message(
+                                messages::WindowMouseInput::new(
+                                    true,
+                                    ambient_shared_types::MouseButton::from(button),
+                                ),
+                            );
+                        }
+                        TouchPhase::Moved=>{
+                            world
+                            .resource_mut(world_events())
+                            .add_message(messages::WindowMouseMotion::new(vec2(
+                                touch.location.x as f32,
+                                touch.location.y as f32,
+                            )));
+                        }
+                        _=>{
+                            world.resource_mut(world_events()).add_message(
+                                messages::WindowMouseInput::new(
+                                    false,
+                                    ambient_shared_types::MouseButton::from(button),
+                                ),
+                            );
+                        }
+                    }
+
+
                 }
                 _ => {}
             },

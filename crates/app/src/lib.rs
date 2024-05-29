@@ -818,7 +818,6 @@ impl AppWrapper{
                             }
                         });
                     });
-                    tracing::info!("nnn done");
                     self.once = true;
                 }else{
 
@@ -844,7 +843,6 @@ impl AppWrapper{
                                 control_flow,
                             );
                         } else if let Some(event) = event.to_static() {
-                            //tracing::info!("nnn events {:?}",event.clone());
                             if let Event::WindowEvent {window_id,  event } = event.clone(){
                                 match event{
                                     WindowEvent::Destroyed =>{
