@@ -1,7 +1,7 @@
 [workspace]
 #default-members = ["app"]
 exclude = ["guest", "tmp", "web","app"]
-members = ["crates/*", "libs/*", "shared_crates/*", "campfire", "schema"]
+members = ["crates/*", "libs/*", "shared_crates/*", "campfire", "schema","app"]
 resolver = "2"
 
 [workspace.package]
@@ -66,7 +66,7 @@ reqwest = { version = "0.11.20", default-features = false, features = [
 ] }
 url = { version = "2", features = ["serde"] }
 thiserror = "1.0"
-thread-priority = "0.10.0"
+thread-priority = "1.1.0"
 once_cell = { version = "1.18.0", features = ["parking_lot"] }
 smallvec = "1.11.1"
 yaml-rust = { version = "0.5", package = "yaml-rust-davvid" }
@@ -94,7 +94,6 @@ sentry = { version = "0.31", default-features = false, features = [
 ] }
 sentry-log = "0.31"
 sentry-anyhow = "0.31"
-sentry-rust-minidump = "0.6"
 enumflags2 = "0.6"
 num-traits = "0.2"
 num-derive = "0.3"
@@ -197,7 +196,7 @@ http = { version = "0.2.9" }
 #
 # WASM
 #
-wasi-cap-std-sync = { version = "14.0.0", git = "https://github.com/bytecodealliance/wasmtime", rev = "9f00198611537c7a9b384c9f9e3db85e0ca15123" }
+wasi-cap-std-sync = { version = "16.0.0", git = "https://github.com/jmp-0x7C0/wasmtime", rev = "fbda3a9" }
 
 wit-bindgen-core = "0.9.0"
 wit-bindgen-rust = "0.9.0"

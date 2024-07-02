@@ -235,6 +235,19 @@ impl AsyncAssetKey<AssetResult<Arc<PathBuf>>> for BytesFromUrlCachedPath {
         }
 
         let path = self.url.absolute_cache_path(&assets);
+        let mut path_str = path.to_string_lossy().to_string();
+
+        // Remove the leading slash if it exists
+        if path_str.starts_with('/') {
+            path_str.remove(0);
+        }
+        let mut n = PathBuf::new();
+        #[cfg(target_os="android")]
+        {
+            let d = ambient_dirs::dirs();
+            n = d.join(path_str);
+        }
+        let path = n;
         if !path.exists() {
             use tokio::io::AsyncWriteExt;
             let mut dir = path.clone();

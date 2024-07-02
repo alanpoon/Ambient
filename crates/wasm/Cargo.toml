@@ -45,7 +45,7 @@ ulid = { workspace = true }
 wit-component = { workspace = true }
 futures = { workspace = true }
 
-wasm-bridge = { git = "https://github.com/AmbientRun/wasm-bridge", branch  = "wasmtime-git", version = "0.2", features = [
+wasm-bridge = { path="../../../wasm-bridge/crates/wasm-bridge", version = "0.2", features = [
     "component-model",
     "sync",
     "wasi",

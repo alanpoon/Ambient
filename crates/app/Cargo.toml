@@ -46,7 +46,9 @@ env_logger = "0.10.0"
 tokio = {workspace = true}
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
 thread-priority = { workspace = true }
-winit = { version = "0.28.7", default-features = false,features = ["android-native-activity"] }
+#winit = { version = "0.28.7", default-features = false,features = ["android-native-activity"] }
+winit = { version = "0.28.7", default-features = false}
+#winit = { version = "0.28.7", default-features = false,features = ["android-game-activity"] }
 
 [features]
 profile = ["puffin", "puffin_http", "profiling/profile-with-puffin"]
