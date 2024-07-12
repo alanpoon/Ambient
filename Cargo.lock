@@ -430,6 +430,7 @@ dependencies = [
  "ambient_ui_native",
  "glam 0.24.2",
  "rand 0.8.5",
+ "tracing",
 ]
 
 [[package]]
@@ -1534,6 +1535,7 @@ dependencies = [
  "parking_lot",
  "rand 0.8.5",
  "serde",
+ "tracing",
 ]
 
 [[package]]

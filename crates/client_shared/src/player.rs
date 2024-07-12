@@ -65,19 +65,21 @@ pub fn PlayerRawInputHandler(hooks: &mut Hooks) -> Element {
         process_input(world, has_focus, |input, mouse_pos| {
             input.mouse_position = mouse_pos;
             input.mouse_delta += msg.delta;
+            tracing::info!("c_player input{:?}",input);
         });
     });
+
 
     use_runtime_message::<messages::WindowMouseWheel>(hooks, move |world, event| {
         process_input(world, has_focus, |input, _| {
             let delta = event.delta;
+
             input.mouse_wheel += match event.pixels {
                 false => delta.y * PIXELS_PER_LINE,
                 true => delta.y,
             };
         });
     });
-
     fn process_input(
         ui_world: &World,
         has_focus: bool,

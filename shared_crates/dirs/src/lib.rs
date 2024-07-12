@@ -7,17 +7,26 @@ use std::sync::{Arc,Mutex};
 use android_activity::AndroidApp;
 #[cfg(target_os = "android")]
 lazy_static!{
-    pub static ref ANDROID_APP :Arc<Mutex<Option<AndroidApp>>> = Arc::new(Mutex::new(None));
+    //pub static ref ANDROID_APP :Arc<Mutex<Option<AndroidApp>>> = Arc::new(Mutex::new(None));
+    pub static ref DIRECTORY :Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
 }
 use directories::ProjectDirs;
 #[cfg(target_os = "android")]
 pub fn init(android:AndroidApp){
-    *ANDROID_APP.lock().unwrap() = Some(android);
+    //let path = android.internal_data_path().unwrap();
+    let path = PathBuf::from("/data/user/0/dev.rustropy.wry2/files");
+    *DIRECTORY.lock().unwrap() = Some(path);
+    //*ANDROID_APP.lock().unwrap() = Some(android);
 }
 #[cfg(target_os = "android")]
 pub fn dirs()->PathBuf{
-    if let Some(ref a)=*ANDROID_APP.lock().unwrap(){
-        a.clone().internal_data_path().unwrap()
+    // if let Some(ref a)=*ANDROID_APP.lock().unwrap(){
+    //     a.clone().internal_data_path().unwrap()
+    // }else{
+    //     PathBuf::new()
+    // }
+    if let Some(ref a)=*DIRECTORY.lock().unwrap(){
+        a.clone()
     }else{
         PathBuf::new()
     }
@@ -42,12 +51,13 @@ pub fn settings_path() -> PathBuf {
     // let rust_string = unsafe {  CStr::from_ptr(path_chars).to_str().unwrap() };
     // let cd_c = PathBuf::from(rust_string);
     // cd_c.join("config").join("settings.toml")
-    if let Some(ref android_app) = *ANDROID_APP.lock().unwrap(){
-        let internal_path = android_app.internal_data_path().unwrap();
-        internal_path.join("config").join("settings.toml")
-    }else{
-        project_dirs().config_dir().to_owned().join("settings.toml")
-    }
+    // if let Some(ref android_app) = *ANDROID_APP.lock().unwrap(){
+    //   //  let internal_path = android_app.internal_data_path().unwrap();
+    //     internal_path.join("config").join("settings.toml")
+    // }else{
+    //     project_dirs().config_dir().to_owned().join("settings.toml")
+    // }
+    dirs().join("config").join("settings.toml")
     }
     #[cfg(not(target_os = "android"))]
     {
@@ -77,7 +87,8 @@ pub fn deployment_cache_path(deployment: &str) -> PathBuf {
 
     // let cd_c = PathBuf::from(cache_dir_path);
     // cd_c.join("cache").join("deployments").join(deployment)
-    PathBuf::from("")
+    //PathBuf::from("")
+    dirs()
 }
 #[cfg(not(target_os="android"))]
 /// Returns the path to the cache for the given deployment.

@@ -108,6 +108,7 @@ pub fn HighjackMouse(
         let focused = focused.clone();
         move |world, event| {
             let delta = event.delta;
+
             let pos = {
                 let mut pos = position.lock();
                 *pos += delta;

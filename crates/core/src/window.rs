@@ -4,7 +4,7 @@ use glam::{uvec2, vec2, UVec2, Vec2, Vec3, Vec3Swizzles};
 use winit::window::{CursorGrabMode, CursorIcon, Window};
 
 pub use ambient_ecs::generated::app::components::{
-    cursor_position, window_logical_size, window_physical_size, window_scale_factor,
+    cursor_position,last_touch_position, window_logical_size, window_physical_size, window_scale_factor,
 };
 
 components!("app", {

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use ambient_core::window::window_scale_factor;
 use ambient_ecs::{
     components, generated::messages, world_events, Debuggable, Entity, FnSystem, Resource, System,
     SystemGroup, WorldEventsExt,
@@ -11,7 +12,9 @@ pub use winit::event::{
     DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode,
     WindowEvent,
 };
-
+pub use ambient_ecs::generated::app::components::{
+    cursor_position,last_touch_position
+};
 pub mod picking;
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -64,18 +67,70 @@ pub fn resources() -> Entity {
         .with(player_raw_input(), Default::default())
         .with(player_prev_raw_input(), Default::default())
 }
+use std::time::{Duration, Instant};
+use winit::{
+    dpi::PhysicalPosition
+};
+const DOUBLE_TAP_THRESHOLD: Duration = Duration::from_millis(300);
+const TAP_MAX_DISTANCE: f64 = 200.0;
 
+#[derive(Debug)]
+struct TapTracker {
+    last_tap_time: Option<Instant>,
+    last_tap_position: Option<PhysicalPosition<f64>>,
+    pub double_tab:bool
+}
+
+impl TapTracker {
+    fn new() -> Self {
+        Self {
+            last_tap_time: None,
+            last_tap_position: None,
+            double_tab:false
+        }
+    }
+
+    fn is_double_tap(&mut self, position: PhysicalPosition<f64>) -> bool {
+        let now = Instant::now();
+        if let Some(last_tap_time) = self.last_tap_time {
+            if let Some(last_tap_position) = self.last_tap_position {
+                if now.duration_since(last_tap_time) <= DOUBLE_TAP_THRESHOLD
+                    && Self::distance(last_tap_position, position) <= TAP_MAX_DISTANCE
+                {
+                    self.last_tap_time = None; // Reset after double-tap detection
+                    self.last_tap_position = None;
+                    self.double_tab = true;
+                    return true;
+                }
+            }
+        }
+        self.last_tap_time = Some(now);
+        self.last_tap_position = Some(position);
+        self.double_tab = false;
+        false
+    }
+
+    fn distance(pos1: PhysicalPosition<f64>, pos2: PhysicalPosition<f64>) -> f64 {
+        ((pos1.x - pos2.x).powi(2) + (pos1.y - pos2.y).powi(2)).sqrt()
+    }
+}
 #[derive(Debug)]
 pub struct InputSystem {
     modifiers: ModifiersState,
     is_focused: bool,
+    tap_tracker: TapTracker
 }
 
 impl InputSystem {
     pub fn new() -> Self {
         Self {
             modifiers: ModifiersState::empty(),
-            is_focused: true,
+            is_focused: false,
+            tap_tracker: TapTracker{
+                last_tap_time:None,
+                last_tap_position:None,
+                double_tab:false,
+            }
         }
     }
 }
@@ -164,25 +219,64 @@ impl System<Event<'static, ()>> for InputSystem {
                     );
                 }
                 WindowEvent::Touch ( touch ) => {
-                    tracing::info!("touching {:?}",touch);
+                    //tracing::info!("touch {:?}",touch);
                     let button = MouseButton::Left;
+                    let p = vec2(touch.location.x as f32, touch.location.y as f32)
+                    / world.get(world.resource_entity(),window_scale_factor()).unwrap() as f32;
+
                     match touch.phase{
                         TouchPhase::Started=>{
 
-                            world.resource_mut(world_events()).add_message(
-                                messages::WindowMouseInput::new(
-                                    true,
-                                    ambient_shared_types::MouseButton::from(button),
-                                ),
-                            );
+                            if !self.is_focused{
+                                world.resource_mut(world_events()).add_message(
+                                    messages::WindowFocusChange::new(true),
+                                );
+                                self.is_focused = true;
+                            }
+                            world
+                            .set(world.resource_entity(), cursor_position(), p)
+                            .unwrap();
+                            //world.set(world.resource_entity(),last_touch_position(),p).unwrap();
+
+                           if self.tap_tracker.is_double_tap(touch.location) {
+
+                                world.resource_mut(world_events()).add_message(
+                                    messages::WindowMouseInput::new(
+                                        true,
+                                        ambient_shared_types::MouseButton::from(button),
+                                    ),
+                                );
+                           }
+
                         }
                         TouchPhase::Moved=>{
-                            world
-                            .resource_mut(world_events())
-                            .add_message(messages::WindowMouseMotion::new(vec2(
-                                touch.location.x as f32,
-                                touch.location.y as f32,
-                            )));
+                            let scale_factor = world.get(world.resource_entity(),window_scale_factor()).unwrap();
+                            let touch_after_scale_x= (touch.location.x/scale_factor) as f32;
+                            let touch_after_scale_y= (touch.location.y/scale_factor) as f32;
+
+                                let (c_x,c_y) ={
+                                    let cp: &mut Vec2 = world
+                                    .get_mut(world.resource_entity(), last_touch_position()).unwrap();
+                                    let cp_c = cp.clone();
+                                    cp.x = touch_after_scale_x;
+                                    cp.y = touch_after_scale_y;
+                                    if cp_c ==Vec2::ZERO{
+                                        (touch_after_scale_x,touch_after_scale_y)
+                                    }else{
+                                        (cp_c.x,cp_c.y)
+                                    }
+                                };
+                                let c_x = touch_after_scale_x-c_x;
+                                let c_y = touch_after_scale_y-c_y;
+                                    tracing::info!("c_x: {:?} c_x:{:?} ",c_x,c_y);
+                                    world.resource_mut(world_events()).add_message(
+                                        messages::WindowMouseMotion::new(vec2(
+                                            c_x,
+                                            c_y,
+                                        )),
+                                    );
+
+
                         }
                         _=>{
                             world.resource_mut(world_events()).add_message(
@@ -191,12 +285,54 @@ impl System<Event<'static, ()>> for InputSystem {
                                     ambient_shared_types::MouseButton::from(button),
                                 ),
                             );
+                            world.resource_mut(world_events()).add_message(
+                                messages::WindowMouseMotion::new(vec2(
+                                    0.0,
+                                    0.0,
+                                )),
+                            );
+                            world.set(world.resource_entity(),last_touch_position(),vec2(0.0, 0.0)).unwrap();
+
+                            // let cp = world
+                            //     .get_mut(world.resource_entity(), last_touch_position()).unwrap();
+                            // cp.x = 0.0;
+                            // cp.y = 0.0;
+
                         }
                     }
+                    if let Some(f) = touch.force{
+                        match f{
+                            winit::event::Force::Calibrated{
+                                force, ..
+                            }=>{
+                                if force>=1.0{
+                                    world.resource_mut(world_events()).add_message(
+                                        messages::WindowMouseInput::new(
+                                            true,
+                                            ambient_shared_types::MouseButton::from(button),
+                                        ),
+                                    );
+                                }
+                            },
+                            winit::event::Force::Normalized(force)=>{
+                                if force>=1.0{
+                                    world.resource_mut(world_events()).add_message(
+                                        messages::WindowMouseInput::new(
+                                            true,
+                                            ambient_shared_types::MouseButton::from(button),
+                                        ),
+                                    );
+                                }
 
+                            }
+                        }
+
+                    }
 
                 }
-                _ => {}
+                _ => {
+                    tracing::info!("other {:?}",event);
+                }
             },
 
             Event::DeviceEvent {
@@ -210,7 +346,9 @@ impl System<Event<'static, ()>> for InputSystem {
                         delta.1 as f32,
                     )));
             }
-            _ => {}
+            _ => {
+                //tracing::info!("other event {:?}",event);
+            }
         }
     }
 }

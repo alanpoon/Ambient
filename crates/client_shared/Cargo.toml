@@ -20,3 +20,4 @@ ambient_ecs_editor = { path = "../ecs_editor/" , version = "0.3.1-dev" }
 
 glam = { workspace = true }
 rand = { workspace = true }
+tracing = {workspace = true }

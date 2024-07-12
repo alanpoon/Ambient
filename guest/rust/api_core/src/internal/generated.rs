@@ -167,6 +167,19 @@ mod raw {
                 pub fn cursor_position() -> Component<Vec2> {
                     *CURSOR_POSITION
                 }
+                static LAST_TOUCH_POSITION: Lazy<Component<Vec2>> = Lazy::new(|| {
+                    __internal_get_component("ambient_core::app::last_touch_position")
+                });
+                #[doc = "**Last touch**: Last Touch position\n\n*Attributes*: MaybeResource, Debuggable, Networked"]
+                pub fn last_touch_position() -> Component<Vec2> {
+                    *LAST_TOUCH_POSITION
+                }
+                static WINDOW_DPI: Lazy<Component<u64>> =
+                    Lazy::new(|| __internal_get_component("ambient_core::app::window_dpi"));
+                #[doc = "**Window DPI**: Window DPI\n\n*Attributes*: MaybeResource, Debuggable"]
+                pub fn window_dpi() -> Component<u64> {
+                    *WINDOW_DPI
+                }
                 static DELTA_TIME: Lazy<Component<f32>> =
                     Lazy::new(|| __internal_get_component("ambient_core::app::delta_time"));
                 #[doc = "**Delta time**: How long the previous tick took in seconds.\n\n*Attributes*: Debuggable, Resource"]

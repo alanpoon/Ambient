@@ -83,8 +83,10 @@ pub(crate) async fn download<T: 'static + Send, F: Future<Output = anyhow::Resul
     url: impl reqwest::IntoUrl,
     map: impl 'static + Send + Fn(reqwest::Response) -> F,
 ) -> anyhow::Result<T> {
-    let url_str = url.as_str().to_string();
-    let url = url.into_url()?;
+    let mut url_str = url.as_str().to_string();
+    tracing::info!("url_str {:?}",url_str);
+    url_str = url_str.replace("127.0.0.1", "10.0.2.2");
+    let url = url::Url::parse(&url_str)?;
     let assets = assets.clone();
 
     // reqwest::Client is not Send on wasm

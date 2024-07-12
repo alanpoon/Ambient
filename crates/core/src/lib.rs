@@ -190,9 +190,12 @@ impl ClientTimeResourcesSystem {
 }
 impl System for ClientTimeResourcesSystem {
     fn run(&mut self, world: &mut World, _event: &FrameEvent) {
-        let delta_time = self.frame_time.elapsed();
+        let delta_time: Duration = self.frame_time.elapsed();
+        if delta_time< std::time::Duration::from_millis(30){
+            std::thread::sleep(std::time::Duration::from_millis(250)-delta_time);
+        }
         self.frame_time = Instant::now();
-
+        let delta_time: Duration = self.frame_time.elapsed();
         world
             .set_components(
                 world.resource_entity(),

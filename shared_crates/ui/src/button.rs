@@ -269,6 +269,7 @@ pub fn Button(
     use_runtime_message::<messages::WindowMouseInput>(hooks, {
         to_owned![set_is_pressed, on_invoked, set_is_working];
         move |world, event| {
+            //tracing::info!("c_WindowMouseInput {:?}",event);
             let pressed = event.pressed;
             if pressed && hover {
                 set_is_pressed(true);
@@ -303,6 +304,7 @@ pub fn Button(
         .on_mouse_enter({
             to_owned![set_hover];
             move |world, _| {
+                tracing::info!("c entered");
                 set_hover(true);
                 ambient_guest_bridge::window::set_cursor(world, CursorIcon::Hand);
             }

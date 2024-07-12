@@ -11,6 +11,18 @@ name = "Cursor position"
 description = "Absolute mouse cursor position in screen-space. This is the *logical* position. Multiply by the `window_scale_factor` to get the physical position."
 attributes = ["MaybeResource", "Debuggable", "Networked"]
 
+[components.last_touch_position]
+type = "Vec2"
+name = "Last touch"
+description = "Last Touch position"
+attributes = ["MaybeResource", "Debuggable", "Networked"]
+
+[components.window_dpi]
+type = "U64"
+name = "Window DPI"
+description = "Window DPI"
+attributes = ["MaybeResource", "Debuggable"]
+
 [components.delta_time]
 type = "F32"
 name = "Delta time"
