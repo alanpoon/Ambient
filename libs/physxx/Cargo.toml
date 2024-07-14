@@ -9,7 +9,7 @@ rust-version = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
-physx-sys = {path = "../../../physx-rs/physx-sys"}
+physx-sys = {git ="https://github.com/alanpoon/physx-rs", branch = "android"}
 glam = { workspace = true }
 bitflags = { workspace = true }
 enumflags2 = { workspace = true }
