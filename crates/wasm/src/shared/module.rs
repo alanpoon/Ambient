@@ -19,9 +19,6 @@ use wasm_bridge::{
     Store,
 };
 
-// use wasi_cap_std_sync::Dir;
-// use wasmtime_wasi::preview2 as wasi_preview2;
-
 #[cfg(not(target_os = "unknown"))]
 use wasm_bridge::wasi::preview2::{DirPerms, FilePerms};
 
@@ -236,15 +233,17 @@ impl<Bindings: BindingsBound> InstanceState<Bindings> {
         let mut table = Table::new();
         let mut wasi = WasiCtxBuilder::new();
 
-        wasi.stdout(stdout_output, IsATTY::No)
-            .stderr(stderr_output, IsATTY::No);
-
+        // wasi.stdout(stdout_output, IsATTY::No)
+        //     .stderr(stderr_output, IsATTY::No);
+        wasi.stdout(stdout_output)
+        .stderr(stderr_output);
         #[cfg(not(target_os = "unknown"))]
         if let Some(dir) = args.preopened_dir {
             wasi.preopened_dir(dir, DirPerms::all(), FilePerms::all(), "/");
         }
 
-        let wasi = wasi.build(&mut table)?;
+        //let wasi = wasi.build(&mut table)?;
+        let wasi = wasi.build();
         let mut store = Store::new(
             engine.inner(),
             BindingContext {
@@ -397,8 +396,8 @@ impl<Bindings: BindingsBound> ModuleStateBehavior for InstanceState<Bindings> {
             .contains(event_name)
     }
 }
-
-struct WasiOutputStream(flume::Sender<String>);
+#[derive(Clone)]
+struct WasiOutputStream(flume::Sender<String>,usize);
 
 impl WasiOutputStream {
     fn make(
@@ -406,7 +405,7 @@ impl WasiOutputStream {
     ) -> (Self, WasiOutputStreamConsumer) {
         let (tx, rx) = flume::unbounded();
         (
-            Self(tx),
+            Self(tx,0),
             WasiOutputStreamConsumer {
                 rx,
                 outputter,
@@ -443,26 +442,53 @@ impl wasm_bridge_js::wasi::preview2::OutputStream for WasiOutputStream {
     }
 }
 
+use wasm_bridge::wasi::preview2::StreamResult;
+use wasm_bridge::wasi::preview2::Subscribe;
+#[cfg(not(target_os = "unknown"))]
+#[async_trait::async_trait]
+impl wasm_bridge::wasi::preview2::Subscribe for WasiOutputStream {
+    async fn ready(&mut self){
+
+    }
+}
 #[cfg(not(target_os = "unknown"))]
 #[async_trait::async_trait]
 impl wasm_bridge::wasi::preview2::HostOutputStream for WasiOutputStream {
-    async fn ready(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
 
-    fn write(&mut self, buf: bytes::Bytes) -> anyhow::Result<(usize, preview2::StreamState)> {
-        let msg = std::str::from_utf8(&buf)?;
+    fn flush(&mut self) -> StreamResult<()>{
+        self.1 = 0;
+        return Ok(());
+    }
+    fn check_write(&mut self) -> StreamResult<usize> {
+        return Ok(self.1)
+    }
+    async fn write_ready(&mut self)-> StreamResult<usize>{
+        return Ok(2)
+    }
+    fn write(&mut self, buf: bytes::Bytes) -> preview2::StreamResult<()> {
+        let msg = std::str::from_utf8(&buf).unwrap();
 
         match self.0.try_send(msg.into()) {
-            Ok(()) => Ok((msg.len(), preview2::StreamState::Open)),
-            Err(TrySendError::Disconnected(_)) => Ok((0, preview2::StreamState::Closed)),
+            Ok(()) => {
+                self.1 = msg.len();
+                Ok(())
+            },
+            Err(TrySendError::Disconnected(_)) => Err(preview2::StreamError::Closed),
             Err(TrySendError::Full(_)) => {
-                Err(io::Error::new(io::ErrorKind::WouldBlock, "stdio is full").into())
+                //Err(io::Error::new(io::ErrorKind::WouldBlock, "stdio is full").into())
+                Err(preview2::StreamError::LastOperationFailed(io::Error::new(io::ErrorKind::WouldBlock, "stdio is full").into()))
             }
         }
     }
 }
-
+impl wasm_bridge::wasi::preview2::StdoutStream for WasiOutputStream{
+    fn stream(&self) ->Box<dyn wasm_bridge::wasi::preview2::HostOutputStream>{
+        Box::new(self.clone())
+    }
+    fn isatty(&self) -> bool{
+        false
+    }
+}
 struct WasiOutputStreamConsumer {
     rx: flume::Receiver<String>,
     outputter: Box<dyn Fn(&World, &str) + Sync + Send>,
