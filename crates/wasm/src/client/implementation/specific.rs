@@ -143,6 +143,14 @@ impl wit::client_input::Host for Bindings {
             {
                 CursorGrabMode::Locked
             }
+            #[cfg(target_os = "ios")]
+            {
+                CursorGrabMode::Locked
+            }
+            #[cfg(target_os = "ios-sim")]
+            {
+                CursorGrabMode::Locked
+            }
         } else {
             CursorGrabMode::None
         };
