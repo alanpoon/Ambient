@@ -40,10 +40,12 @@ pub fn systems() -> SystemGroup<Event<'static, ()>> {
                             ..
                         } => ui_render.resize(&gpu, size),
                         Event::WindowEvent {
-                            event: WindowEvent::ScaleFactorChanged { new_inner_size, .. },
+                            event: WindowEvent::ScaleFactorChanged { inner_size_writer, .. },
                             ..
                         } => {
-                            ui_render.resize(&gpu, new_inner_size);
+                            //123
+                            // let new_inner_size = inner_size_writer.
+                            // ui_render.resize(&gpu, new_inner_size);
                         }
                         _ => {}
                     }

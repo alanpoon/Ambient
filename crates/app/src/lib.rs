@@ -42,10 +42,11 @@ use parking_lot::Mutex;
 use renderers::{main_renderer, ui_renderer, MainRenderer, UiRenderer};
 use winit::{
     dpi::PhysicalPosition,
-    event::{ElementState, Event, KeyboardInput, ModifiersState, TouchPhase, VirtualKeyCode, WindowEvent},
+    event::{ElementState, Event, KeyEvent, KeyboardInput, ModifiersState, TouchPhase, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{CursorGrabMode, Fullscreen, Window, WindowBuilder},
 };
+use winit::keyboard::{KeyCode, PhysicalKey};
 static mut QUIT:bool = false;
 static mut LOADED:bool = false;
 mod renderers;
@@ -870,8 +871,8 @@ impl AppWrapper{
                         window_id,
                         event:
                             WindowEvent::ScaleFactorChanged {
-                                new_inner_size,
-                                scale_factor,
+                          //      new_inner_size,
+                                scale_factor,..
                             },
                     } = &event
                     {
@@ -1254,16 +1255,23 @@ impl App {
                     tracing::info!("Closing...");
                     *control_flow = ControlFlow::Exit;
                 }
-                WindowEvent::KeyboardInput { input, .. } => {
-                    if let Some(keycode) = input.virtual_keycode {
-                        if input.state == ElementState::Pressed {
-                            if let VirtualKeyCode::Q = keycode {
-                                if self.modifiers.logo() {
-                                    *control_flow = ControlFlow::Exit;
-                                }
+                WindowEvent::KeyboardInput { event, .. } => {
+                    if event.state == ElementState::Pressed {
+                        if let VirtualKeyCode::Q = event.physical_key {
+                            if self.modifiers.logo() {
+                                *control_flow = ControlFlow::Exit;
                             }
                         }
                     }
+                    // if let Some(keycode) = input.virtual_keycode {
+                    //     if input.state == ElementState::Pressed {
+                    //         if let VirtualKeyCode::Q = keycode {
+                    //             if self.modifiers.logo() {
+                    //                 *control_flow = ControlFlow::Exit;
+                    //             }
+                    //         }
+                    //     }
+                    // }
                 }
                 WindowEvent::ModifiersChanged(state) => {
                     self.modifiers = *state;
@@ -1305,21 +1313,20 @@ impl System<Event<'static, ()>> for ExamplesSystem {
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                virtual_keycode: Some(virtual_keycode),
-                                state: ElementState::Pressed,
-                                ..
-                            },
+                        event:KeyEvent{
+                            physical_key,
+                            state:ElementState::Pressed,
+                            ..
+                        },
                         ..
                     },
                 ..
-            } => match virtual_keycode {
-                VirtualKeyCode::F1 => dump_world_hierarchy_to_user(world),
+            } => match physical_key {
+                PhysicalKey::Code(KeyCode::F1) => dump_world_hierarchy_to_user(world),
                 #[cfg(not(target_os = "unknown"))]
-                VirtualKeyCode::F2 => world.dump_to_tmp_file(),
+                PhysicalKey::Code(KeyCode::F2) => world.dump_to_tmp_file(),
                 #[cfg(not(target_os = "unknown"))]
-                VirtualKeyCode::F3 => world.resource(main_renderer()).lock().dump_to_tmp_file(),
+                PhysicalKey::Code(KeyCode::F3) => world.resource(main_renderer()).lock().dump_to_tmp_file(),
                 _ => {}
             },
             _ => {}
