@@ -100,7 +100,7 @@ impl GpuRun {
 
     pub async fn run<In: WgslType, Out: WgslType>(
         self,
-        gpu: &Gpu,
+        gpu: &Gpu<'_>,
         assets: &AssetCache,
         input: In,
     ) -> Out {
@@ -141,7 +141,7 @@ impl GpuRun {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None,timestamp_writes:None });
             pass.set_pipeline(pipeline.pipeline());
 
             for (i, v) in [&bind_group]

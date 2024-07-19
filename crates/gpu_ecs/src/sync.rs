@@ -9,10 +9,12 @@ use itertools::Itertools;
 use super::{gpu_world, GpuComponentFormat, GpuComponentId};
 use crate::gpu;
 use gpu::gpu::Gpu;
-
+use std::marker::PhantomData;
 /// GpuWorld sync/update systems need to run immediately after the GpuWorld has updated it's layout,
 /// so by forcing them to use this even we can make sure they're all in order
-pub struct GpuWorldSyncEvent;
+pub struct GpuWorldSyncEvent<'a>{
+    data: &'a str
+}
 
 pub struct ArchChangeDetection {
     arch_data_versions: SparseVec<u64>,
@@ -42,17 +44,17 @@ impl ArchChangeDetection {
     }
 }
 
-pub struct ComponentToGpuSystem<T: ComponentValue + bytemuck::Pod> {
-    gpu: Arc<Gpu>,
+pub struct ComponentToGpuSystem<'a,T: ComponentValue + bytemuck::Pod> {
+    gpu: Arc<Gpu<'a>>,
     format: GpuComponentFormat,
     source_archetypes: ArchetypeFilter,
     source_component: Component<T>,
     destination_component: GpuComponentId,
     changed: ArchChangeDetection,
 }
-impl<T: ComponentValue + bytemuck::Pod> ComponentToGpuSystem<T> {
+impl<'a,T: ComponentValue + bytemuck::Pod> ComponentToGpuSystem<'a,T> {
     pub fn new(
-        gpu: Arc<Gpu>,
+        gpu: Arc<Gpu<'a>>,
         format: GpuComponentFormat,
         source_component: Component<T>,
         destination_component: GpuComponentId,
@@ -72,8 +74,8 @@ impl<T: ComponentValue + bytemuck::Pod> ComponentToGpuSystem<T> {
         self
     }
 }
-impl<T: ComponentValue + bytemuck::Pod> System<GpuWorldSyncEvent> for ComponentToGpuSystem<T> {
-    fn run(&mut self, world: &mut World, _: &GpuWorldSyncEvent) {
+impl<'a,T: ComponentValue + bytemuck::Pod> System<GpuWorldSyncEvent<'a>> for ComponentToGpuSystem<'a,T> {
+    fn run(&mut self, world: &mut World, _: &GpuWorldSyncEvent<'a>) {
         profiling::scope!("ComponentToGpuSystem.run");
         let gpu_world = world.resource(gpu_world()).lock();
         let gpu = self.gpu.clone();
@@ -93,23 +95,23 @@ impl<T: ComponentValue + bytemuck::Pod> System<GpuWorldSyncEvent> for ComponentT
         }
     }
 }
-impl<T: ComponentValue + bytemuck::Pod> Debug for ComponentToGpuSystem<T> {
+impl<'a,T: ComponentValue + bytemuck::Pod> Debug for ComponentToGpuSystem<'a,T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ComponentToGpuSystem").finish()
     }
 }
 
-pub struct MappedComponentToGpuSystem<A: ComponentValue, B: bytemuck::Pod> {
-    gpu: Arc<Gpu>,
+pub struct MappedComponentToGpuSystem<'a,A: ComponentValue, B: bytemuck::Pod> {
+    gpu: Arc<Gpu<'a>>,
     format: GpuComponentFormat,
     source_component: Component<A>,
     destination_component: GpuComponentId,
     map: Box<dyn Fn(&World, EntityId, &A) -> B + Sync + Send>,
     changed: ArchChangeDetection,
 }
-impl<A: ComponentValue, B: bytemuck::Pod> MappedComponentToGpuSystem<A, B> {
+impl<'a,A: ComponentValue, B: bytemuck::Pod> MappedComponentToGpuSystem<'a,A, B> {
     pub fn new(
-        gpu: Arc<Gpu>,
+        gpu: Arc<Gpu<'a>>,
         format: GpuComponentFormat,
         source_component: Component<A>,
         destination_component: GpuComponentId,
@@ -126,10 +128,10 @@ impl<A: ComponentValue, B: bytemuck::Pod> MappedComponentToGpuSystem<A, B> {
         }
     }
 }
-impl<A: ComponentValue, B: bytemuck::Pod> System<GpuWorldSyncEvent>
-    for MappedComponentToGpuSystem<A, B>
+impl<'a,A: ComponentValue, B: bytemuck::Pod> System<GpuWorldSyncEvent<'a>>
+    for MappedComponentToGpuSystem<'a,A, B>
 {
-    fn run(&mut self, world: &mut World, _: &GpuWorldSyncEvent) {
+    fn run(&mut self, world: &mut World, _: &GpuWorldSyncEvent<'a>) {
         profiling::scope!("MappedComponentToGpu.run");
         let gpu_world = world.resource(gpu_world()).lock();
         let gpu = self.gpu.clone();
@@ -157,7 +159,7 @@ impl<A: ComponentValue, B: bytemuck::Pod> System<GpuWorldSyncEvent>
         }
     }
 }
-impl<A: ComponentValue, B: bytemuck::Pod> Debug for MappedComponentToGpuSystem<A, B> {
+impl<'a,A: ComponentValue, B: bytemuck::Pod> Debug for MappedComponentToGpuSystem<'a,A, B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MappedComponentToGpu").finish()
     }

@@ -20,7 +20,7 @@ tracing-subscriber = { version = "0.3.17", features = [
     "local-time",
     "parking_lot",
 ] }
-wgpu = { version = "0.16.3", features = ["serde", "trace", "replay"] }
+wgpu = { version = "22.0.0", features = ["serde", "replay"],git ="https://github.com/gfx-rs/wgpu",branch="trunk" }
 wgpu-types = { version = "0.16", features = ["serde"] }
 winit = { version = "0.30.4", features = ["serde"] }
 futures = { version = "0.3", default-features = false, features = ["std"] }

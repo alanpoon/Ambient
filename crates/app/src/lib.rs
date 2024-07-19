@@ -78,7 +78,7 @@ pub fn init_all_components() {
     ambient_procedurals::init_components();
 }
 
-pub fn gpu_world_sync_systems(gpu: Arc<Gpu>) -> SystemGroup<GpuWorldSyncEvent> {
+pub fn gpu_world_sync_systems<'a>(gpu: Arc<Gpu<'a>>) -> SystemGroup<GpuWorldSyncEvent> {
     SystemGroup::new(
         "gpu_world",
         vec![

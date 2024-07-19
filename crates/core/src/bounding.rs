@@ -94,7 +94,7 @@ pub fn bounding_systems() -> SystemGroup {
     )
 }
 
-pub fn gpu_world_systems(gpu: Arc<Gpu>) -> SystemGroup<GpuWorldSyncEvent> {
+pub fn gpu_world_systems<'a>(gpu: Arc<Gpu<'a>>) -> SystemGroup<GpuWorldSyncEvent<'a>> {
     SystemGroup::new(
         "bounding/gpu_world",
         vec![
@@ -139,8 +139,8 @@ impl VisibilityFromToGpuSystem {
         }
     }
 }
-impl System<GpuWorldSyncEvent> for VisibilityFromToGpuSystem {
-    fn run(&mut self, world: &mut World, _: &GpuWorldSyncEvent) {
+impl <'a>System<GpuWorldSyncEvent<'a>> for VisibilityFromToGpuSystem {
+    fn run(&mut self, world: &mut World, _: &GpuWorldSyncEvent<'a>) {
         profiling::scope!("VisibilityFromToGpu.run");
         let gpu_world = world.resource(gpu_world()).lock();
         let gpu = world.resource(gpu());

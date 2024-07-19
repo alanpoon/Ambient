@@ -5,7 +5,7 @@ use ambient_settings::RenderSettings;
 use anyhow::Context;
 use bytemuck::{Pod, Zeroable};
 use glam::{uvec2, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
-use wgpu::{InstanceDescriptor, PresentMode, TextureFormat};
+use wgpu::{InstanceDescriptor, InstanceFlags, Limits, PresentMode, TextureFormat};
 use winit::window::Window;
 
 // #[cfg(debug_assertions)]
@@ -15,11 +15,11 @@ pub const DEFAULT_SAMPLE_COUNT: u32 = 1;
 
 #[derive(Debug)]
 pub struct GpuKey;
-impl SyncAssetKey<Arc<Gpu>> for GpuKey {}
+impl <'a> SyncAssetKey<Arc<Gpu<'a>>> for GpuKey where 'a: 'static {}
 
 #[derive(Debug)]
-pub struct Gpu {
-    pub surface: Option<wgpu::Surface>,
+pub struct Gpu<'a> {
+    pub surface: Option<wgpu::Surface<'a>>,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub swapchain_format: Option<TextureFormat>,
@@ -29,15 +29,15 @@ pub struct Gpu {
     pub will_be_polled: bool,
 }
 
-impl Gpu {
-    pub async fn new(window: Option<&Window>) -> anyhow::Result<Self> {
+impl<'a> Gpu<'a>{
+    pub async fn new(window: Option<&'a Window>) -> anyhow::Result<Self> {
         Self::with_config(window, false, &RenderSettings::default()).await
     }
     pub async fn with_config(
-        window: Option<&Window>,
+        window: Option<&'a Window>,
         will_be_polled: bool,
         settings: &RenderSettings,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Gpu<'a>> {
         let _span = tracing::info_span!("create_gpu").entered();
         // From: https://github.com/KhronosGroup/Vulkan-Loader/issues/552
         #[cfg(not(target_os = "unknown"))]
@@ -72,12 +72,15 @@ impl Gpu {
             //     dxil_path: Some("./dxil.dll".into()),
             //     dxc_path: Some("./dxcompiler.dll".into()),
             // },
+            flags:InstanceFlags::all(),
+            gles_minor_version:wgpu::Gles3MinorVersion::Automatic
         });
 
         let surface = window
-            .map(|window| unsafe { instance.create_surface(window) })
+            .map(|window|  instance.create_surface(window))
             .transpose()
             .context("Failed to create surface")?;
+        //let surface = instance.create_surface(window)?;
         tracing::info!("...surface {:?}",surface);
         #[cfg(not(target_os = "unknown"))]
         {
@@ -150,8 +153,9 @@ impl Gpu {
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
-                features: features,
-                limits:adapter.limits(),
+                required_features:features,
+                required_limits:adapter.limits(),
+                memory_hints:wgpu::MemoryHints::Manual { suballocated_device_memory_block_size: 1..2 }
             },
             None,
         )
@@ -232,6 +236,7 @@ impl Gpu {
             present_mode,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![],
+            desired_maximum_frame_latency:1
         }
     }
 }

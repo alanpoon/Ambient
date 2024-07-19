@@ -491,7 +491,7 @@ impl System for TransformSystem {
         self.post_parented_systems.run(world, event);
     }
 }
-pub fn transform_gpu_systems(gpu: Arc<Gpu>) -> SystemGroup<GpuWorldSyncEvent> {
+pub fn transform_gpu_systems<'a>(gpu: Arc<Gpu<'a>>) -> SystemGroup<GpuWorldSyncEvent<'a>> {
     SystemGroup::new(
         "transform_gpu",
         vec![Box::new(ComponentToGpuSystem::new(

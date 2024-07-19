@@ -4,8 +4,7 @@ use ambient_native_std::asset_cache::{AssetCache, SyncAssetKey, SyncAssetKeyExt}
 use glam::Vec4;
 use wgpu::util::DeviceExt;
 use wgpu::{
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages,
-    TextureViewDimension,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType, PipelineCompilationOptions, ShaderStages, TextureViewDimension
 };
 
 use super::{
@@ -98,6 +97,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {{
                     )),
                     module: &shader,
                     entry_point: "main",
+                    compilation_options:PipelineCompilationOptions::default(),
+                    cache:None
                 });
         Self { pipeline }
     }
@@ -151,6 +152,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {{
 
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Filler"),
+            timestamp_writes:None
         });
         cpass.set_pipeline(&self.pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);

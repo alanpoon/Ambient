@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use ambient_native_std::asset_cache::{AssetCache, SyncAssetKey, SyncAssetKeyExt};
 use wgpu::{
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, FilterMode, PipelineLayoutDescriptor,
-    ShaderStages, TextureSampleType,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, FilterMode, PipelineCompilationOptions, PipelineLayoutDescriptor, ShaderStages, TextureSampleType
 };
 
 use crate::shader_module::{Shader, ShaderIdent, ShaderModule};
@@ -89,11 +88,13 @@ impl Blitter {
                     module: &shader,
                     entry_point: "vs_main",
                     buffers: &[],
+                    compilation_options:PipelineCompilationOptions::default()
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
                     entry_point: "fs_main",
                     targets: &[Some(conf.format.clone())],
+                    compilation_options:PipelineCompilationOptions::default()
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleStrip,
@@ -102,6 +103,7 @@ impl Blitter {
                 depth_stencil: None,
                 multisample: wgpu::MultisampleState::default(),
                 multiview: None,
+                cache:None,
             });
 
         let sampler = gpu.device.create_sampler(&wgpu::SamplerDescriptor {
@@ -149,10 +151,12 @@ impl Blitter {
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes:None,
+            occlusion_query_set:None
         });
 
         rpass.set_pipeline(&self.pipeline);

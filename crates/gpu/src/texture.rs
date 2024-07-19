@@ -16,7 +16,7 @@ use image::{io::Reader as ImageReader, DynamicImage, Rgba, RgbaImage};
 use itertools::Itertools;
 use ndarray::{s, Array, Array2, Array4, Dimension};
 use ordered_float::OrderedFloat;
-use wgpu::util::DeviceExt;
+use wgpu::util::{DeviceExt, TextureDataOrder};
 
 use crate::shader_module::DEPTH_FORMAT;
 
@@ -91,7 +91,7 @@ impl Texture {
             mip_level_count: descriptor.mip_level_count,
             handle: gpu
                 .device
-                .create_texture_with_data(&gpu.queue, descriptor, data),
+                .create_texture_with_data(&gpu.queue, descriptor,TextureDataOrder::LayerMajor, data),
         }
     }
     pub fn from_file<P: AsRef<Path> + std::fmt::Debug>(
@@ -581,7 +581,7 @@ impl TextureReader {
     }
 
     /// Reads the whole texture async
-    pub async fn read(&self, gpu: &Gpu) -> Option<Vec<u8>> {
+    pub async fn read(&self, gpu: &Gpu<'_>) -> Option<Vec<u8>> {
         let buffer_slice = self.staging_output_buffer.slice(..);
         let (tx, buffer_future) = tokio::sync::oneshot::channel();
         buffer_slice.map_async(wgpu::MapMode::Read, |v| {
@@ -617,8 +617,8 @@ impl TextureReader {
         }
     }
 
-    pub async fn read_array_f32(&self, gpu: &Gpu) -> Option<Array4<f32>> {
-        if let Some(bytes) = self.read(gpu).await {
+    pub async fn read_array_f32(&self, gpu: &Gpu<'_>) -> Option<Array4<f32>> {
+        if let Some(bytes) = self.read(gpu).await.clone() {
             let mut numbers = vec![
                 0.;
                 self.size.width as usize
@@ -643,12 +643,12 @@ impl TextureReader {
             None
         }
     }
-    pub async fn read_image(&self, gpu: &Gpu) -> Option<DynamicImage> {
+    pub async fn read_image(&self, gpu: &Gpu<'_>) -> Option<DynamicImage> {
         self.read_images(gpu)
             .await
             .map(|mut images| images.pop().unwrap())
     }
-    pub async fn read_png(&self, gpu: &Gpu) -> Option<Vec<u8>> {
+    pub async fn read_png(&self, gpu: &Gpu<'_>) -> Option<Vec<u8>> {
         self.read_image(gpu).await.and_then(|image| {
             let mut data = Cursor::new(Vec::new());
             image
@@ -657,7 +657,7 @@ impl TextureReader {
             Some(data.into_inner())
         })
     }
-    pub async fn read_images(&self, gpu: &Gpu) -> Option<Vec<DynamicImage>> {
+    pub async fn read_images(&self, gpu: &Gpu<'_>) -> Option<Vec<DynamicImage>> {
         if self.format == wgpu::TextureFormat::R32Float {
             let array = self.read_array_f32(gpu).await?;
             Some(
@@ -724,11 +724,11 @@ impl TextureReader {
             unimplemented!("{:?}", self.format)
         }
     }
-    pub async fn write_to_file(&self, gpu: &Gpu, path: impl AsRef<Path>) {
+    pub async fn write_to_file(&self, gpu: &Gpu<'_>, path: impl AsRef<Path>) {
         let image = self.read_image(gpu).await.unwrap().into_rgba8();
         image.save(path).unwrap();
     }
-    pub async fn write_to_files(&self, gpu: &Gpu, path: &str) {
+    pub async fn write_to_files(&self, gpu: &Gpu<'_>, path: &str) {
         let images = self.read_images(gpu).await.unwrap();
         for (i, image) in images.into_iter().enumerate() {
             image.save(&format!("{path}_{i}.png")).unwrap();

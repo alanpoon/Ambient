@@ -6,7 +6,7 @@ use ambient_std::topological_sort::{topological_sort, TopologicalSortable};
 use anyhow::Context;
 use itertools::Itertools;
 use wgpu::{
-    BindGroupLayout, BindGroupLayoutEntry, ComputePipelineDescriptor, DepthBiasState, TextureFormat,
+    BindGroupLayout, BindGroupLayoutEntry, ComputePipelineDescriptor, DepthBiasState, PipelineCompilationOptions, TextureFormat
 };
 
 use super::gpu::{Gpu, GpuKey, DEFAULT_SAMPLE_COUNT};
@@ -419,6 +419,7 @@ impl Shader {
                     module: self.module(),
                     entry_point: info.vs_main,
                     buffers: &[],
+                    compilation_options:PipelineCompilationOptions::default()
                 },
                 primitive: wgpu::PrimitiveState {
                     front_face: info.front_face,
@@ -430,6 +431,7 @@ impl Shader {
                     module: self.module(),
                     entry_point: info.fs_main,
                     targets: info.targets,
+                    compilation_options:PipelineCompilationOptions::default()
                 }),
                 depth_stencil: info.depth,
                 multisample: wgpu::MultisampleState {
@@ -438,6 +440,7 @@ impl Shader {
                     alpha_to_coverage_enabled: false,
                 },
                 multiview: None,
+                cache:None
             });
 
         GraphicsPipeline {
@@ -463,6 +466,8 @@ impl Shader {
                 layout: Some(&layout),
                 module: self.module(),
                 entry_point,
+                compilation_options:PipelineCompilationOptions::default(),
+                cache:None
             });
 
         ComputePipeline {
