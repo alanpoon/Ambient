@@ -5,6 +5,7 @@ target
 /example_assets
 /rust
 **/book
+./rusty-hook.toml
 
 # WASM
 web/pkg/

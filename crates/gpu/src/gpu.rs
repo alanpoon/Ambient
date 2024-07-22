@@ -54,6 +54,10 @@ impl Gpu {
             wgpu::Backends::PRIMARY
         } else if cfg!(target_os = "unknown") {
             wgpu::Backends::BROWSER_WEBGPU
+        } else if cfg!(target_os = "ios") {
+            wgpu::Backends::METAL
+        } else if cfg!(target_os = "ios-sim") {
+            wgpu::Backends::METAL
         } else {
             wgpu::Backends::all()
         };
