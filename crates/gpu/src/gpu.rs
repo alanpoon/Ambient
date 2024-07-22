@@ -61,7 +61,7 @@ impl Gpu {
         } else {
             wgpu::Backends::all()
         };
-
+        println!("backends{:?}",backends);
         let instance = wgpu::Instance::new(InstanceDescriptor {
             backends,
             // NOTE: Vulkan is used for windows as a non-zero indirect `first_instance` is not supported, and we have to resort direct rendering
