@@ -1,10 +1,10 @@
 use ambient_ecs::{components, query_mut, Entity, SystemGroup};
 use ambient_native_std::math::SphericalCoords;
 use derive_more::Display;
-use winit::event::{
-    DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent,
-};
-
+use winit::{event::{
+    DeviceEvent, ElementState, Event, MouseScrollDelta, WindowEvent,
+}, keyboard::{Key, PhysicalKey}};
+use winit::keyboard::KeyCode;
 use super::*;
 
 components!("camera", {
@@ -51,7 +51,7 @@ pub fn new(lookat: glam::Vec3, orientation: SphericalCoords) -> Entity {
         .with(camera_movement_speed(), 0.1)
 }
 
-pub fn spherical_camera_system() -> SystemGroup<Event<'static, ()>> {
+pub fn spherical_camera_system() -> SystemGroup<Event<()>> {
     SystemGroup::new(
         "spherical_camera_system",
         vec![query_mut(
@@ -79,31 +79,31 @@ pub fn spherical_camera_system() -> SystemGroup<Event<'static, ()>> {
                     }
                     Event::WindowEvent { event, .. } => {
                         match event {
-                            WindowEvent::KeyboardInput { input, .. } => {
-                                let is_pressed = input.state == ElementState::Pressed;
-                                if let Some(keycode) = input.virtual_keycode {
+                            WindowEvent::KeyboardInput { event, .. } => {
+                                let is_pressed = event.state == ElementState::Pressed;
+                                if let PhysicalKey::Code(keycode) = event.physical_key {
                                     match keycode {
-                                        VirtualKeyCode::E => {
+                                        KeyCode::KeyE => {
                                             spherical_camera.is_up_pressed = is_pressed
                                         }
-                                        VirtualKeyCode::Q => {
+                                        KeyCode::KeyQ => {
                                             spherical_camera.is_down_pressed = is_pressed
                                         }
-                                        VirtualKeyCode::W | VirtualKeyCode::Up => {
+                                        KeyCode::KeyW | KeyCode::ArrowUp => {
                                             spherical_camera.is_forward_pressed = is_pressed
                                         }
-                                        VirtualKeyCode::A | VirtualKeyCode::Left => {
+                                        KeyCode::KeyA | KeyCode::ArrowLeft => {
                                             spherical_camera.is_left_pressed = is_pressed
                                         }
-                                        VirtualKeyCode::S | VirtualKeyCode::Down => {
+                                        KeyCode::KeyS | KeyCode::ArrowDown => {
                                             spherical_camera.is_backward_pressed = is_pressed
                                         }
-                                        VirtualKeyCode::D | VirtualKeyCode::Right => {
+                                        KeyCode::KeyD | KeyCode::ArrowRight => {
                                             spherical_camera.is_right_pressed = is_pressed
                                         }
-                                        VirtualKeyCode::R => *speed *= 2.0,
-                                        VirtualKeyCode::F => *speed /= 2.0,
-                                        VirtualKeyCode::Space => {
+                                        KeyCode::KeyR => *speed *= 2.0,
+                                        KeyCode::KeyF => *speed /= 2.0,
+                                        KeyCode::Space => {
                                             spherical_camera.is_rotating = is_pressed
                                         }
                                         _ => {}
@@ -120,35 +120,35 @@ pub fn spherical_camera_system() -> SystemGroup<Event<'static, ()>> {
                             WindowEvent::MouseInput { .. } => {
                                 // spherical_camera.is_rotating = state == &ElementState::Pressed;
                             }
+                            WindowEvent::RedrawRequested{..} => {
+                                let mut velocity = glam::Vec3::ZERO;
+                                let rotation =
+                                    glam::Quat::from_rotation_z(spherical_camera.orientation.phi);
+                                if spherical_camera.is_up_pressed {
+                                    velocity += glam::Vec3::Z;
+                                }
+                                if spherical_camera.is_down_pressed {
+                                    velocity -= glam::Vec3::Z;
+                                }
+                                if spherical_camera.is_forward_pressed {
+                                    velocity -= rotation * glam::Vec3::X;
+                                }
+                                if spherical_camera.is_backward_pressed {
+                                    velocity += rotation * glam::Vec3::X;
+                                }
+                                if spherical_camera.is_left_pressed {
+                                    velocity += rotation * glam::Vec3::Y;
+                                }
+                                if spherical_camera.is_right_pressed {
+                                    velocity -= rotation * glam::Vec3::Y;
+                                }
+                                *lookat_target += velocity * (*speed);
+                                *translation = spherical_camera.translation(*lookat_target);
+                            }
                             _ => {}
                         }
                     }
-                    Event::MainEventsCleared => {
-                        let mut velocity = glam::Vec3::ZERO;
-                        let rotation =
-                            glam::Quat::from_rotation_z(spherical_camera.orientation.phi);
-                        if spherical_camera.is_up_pressed {
-                            velocity += glam::Vec3::Z;
-                        }
-                        if spherical_camera.is_down_pressed {
-                            velocity -= glam::Vec3::Z;
-                        }
-                        if spherical_camera.is_forward_pressed {
-                            velocity -= rotation * glam::Vec3::X;
-                        }
-                        if spherical_camera.is_backward_pressed {
-                            velocity += rotation * glam::Vec3::X;
-                        }
-                        if spherical_camera.is_left_pressed {
-                            velocity += rotation * glam::Vec3::Y;
-                        }
-                        if spherical_camera.is_right_pressed {
-                            velocity -= rotation * glam::Vec3::Y;
-                        }
-                        *lookat_target += velocity * (*speed);
-                        *translation = spherical_camera.translation(*lookat_target);
-                    }
-                    _ => {}
+                    _=>{}
                 }
             }
         })],

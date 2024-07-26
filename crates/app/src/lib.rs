@@ -42,12 +42,17 @@ use parking_lot::Mutex;
 use renderers::{main_renderer, ui_renderer, MainRenderer, UiRenderer};
 use winit::{
     dpi::PhysicalPosition,
-    event::{ElementState, Event, KeyEvent, KeyboardInput, ModifiersState, TouchPhase, WindowEvent},
+    event::{ElementState, Event, KeyEvent, WindowEvent::KeyboardInput, TouchPhase, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{CursorGrabMode, Fullscreen, Window, WindowBuilder},
+    keyboard::{ModifiersState},
+    window::{CursorGrabMode, Fullscreen, Window},
 };
+
 use winit::keyboard::{KeyCode, PhysicalKey};
-static mut QUIT:bool = false;
+use app_surface::AppSurface;
+pub mod app;
+use crate::app::App;
+
 static mut LOADED:bool = false;
 mod renderers;
 fn default_title() -> String {
@@ -78,7 +83,7 @@ pub fn init_all_components() {
     ambient_procedurals::init_components();
 }
 
-pub fn gpu_world_sync_systems<'a>(gpu: Arc<Gpu<'a>>) -> SystemGroup<GpuWorldSyncEvent> {
+pub fn gpu_world_sync_systems(gpu: Arc<Gpu>) -> SystemGroup<GpuWorldSyncEvent> {
     SystemGroup::new(
         "gpu_world",
         vec![
@@ -333,7 +338,8 @@ impl AppBuilder {
         self
     }
 
-    pub async fn build(self,window:Option<Arc<Window>>) -> anyhow::Result<App> {
+    //pub async fn build(self,window:Option<Arc<Window>>) -> anyhow::Result<App> {
+    pub async fn build(self) -> anyhow::Result<App> {
         crate::init_all_components();
 
         let runtime: RuntimeHandle = RuntimeHandle::current();
@@ -344,33 +350,6 @@ impl AppBuilder {
 
         let settings = SettingsKey.get(&assets);
 
-        // let (window, event_loop) = if self.headless.is_some() {
-        //     (None, None)
-        // } else {
-        //     //let event_loop = self.event_loop.unwrap_or_default();
-        //     let window = WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize {
-        //         width: settings.render.resolution().0,
-        //         height: settings.render.resolution().1,
-        //     });
-        //     let window = if let Some(position) = self.window_position_override {
-        //         window.with_position(winit::dpi::LogicalPosition {
-        //             x: position.x,
-        //             y: position.y,
-        //         })
-        //     } else {
-        //         window
-        //     };
-        //     let window = if let Some(size) = self.window_size_override {
-        //         window.with_inner_size(winit::dpi::LogicalSize {
-        //             width: size.x,
-        //             height: size.y,
-        //         })
-        //     } else {
-        //         window
-        //     };
-        //     let window = Arc::new(window.build(&event_loop).unwrap());
-        //     (Some(window), Some(event_loop))
-        // };
 
         let (cursor_lock_tx, cursor_lock_rx) = flume::unbounded::<bool>();
 
@@ -510,7 +489,19 @@ impl AppBuilder {
         let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Max);
 
         let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
-        let gpu = Arc::new(Gpu::with_config(window.as_deref(), true, &settings.render).await?);
+        let events_loop = EventLoop::new().unwrap();
+        let size = winit::dpi::Size::Logical(winit::dpi::LogicalSize {
+            width: 1200.0,
+            height: 800.0,
+        });
+
+
+        let app_surface = AppSurface::new(window.unwrap()).await;
+        let window = app_surface.get_view();
+        let  (window_physical_size, window_logical_size, window_scale_factor) = get_window_sizes(window);
+
+        let gpu = Arc::new(Gpu::new(Some(app_surface.sdq),app_surface.view).await.unwrap());
+        //let gpu = Arc::new(Gpu::with_config(window.as_deref(), true, &settings.render).await?);
         tracing::info!("settings {:?}",settings);
 
         tracing::debug!("Inserting runtime");
@@ -520,15 +511,19 @@ impl AppBuilder {
 
         tracing::debug!("Inserting app resources");
         let (ctl_tx, ctl_rx) = self.ctl.unwrap_or_else(flume::unbounded);
+        // let window = app_surface.get_view();
+        // // let (window_physical_size, window_logical_size, window_scale_factor) =
+        // //     if let Some( window) = window {
+        // //         get_window_sizes(window)
+        // //     } else {
+        // //         let headless_size = self.headless.unwrap();
+        // //         (headless_size, headless_size, 1.)
+        // //     };
+        // let  (window_physical_size, window_logical_size, window_scale_factor) = get_window_sizes(window);
+        // let window_physical_size = app_surface.physical_size;
+        // let (window_physical_size, window_logical_size, window_scale_factor) =
+        // tracing::info!("window_physical_size {:?},window_logical_size {:?}.{:?}",window_physical_size,window_logical_size,window_scale_factor);
 
-        let (window_physical_size, window_logical_size, window_scale_factor) =
-            if let Some(window) = window.as_ref() {
-                get_window_sizes(window)
-            } else {
-                let headless_size = self.headless.unwrap();
-                (headless_size, headless_size, 1.)
-            };
-        tracing::info!("window_physical_size {:?},window_logical_size {:?}.{:?}",window_physical_size,window_logical_size,window_scale_factor);
         let app_resources = AppResources {
             gpu: gpu.clone(),
             runtime: runtime.clone(),
@@ -577,7 +572,7 @@ impl AppBuilder {
 
         Ok(App {
             window_focused: true,
-            window,
+            //window,
             runtime,
             systems: SystemGroup::new(
                 "app",
@@ -608,31 +603,31 @@ impl AppBuilder {
     }
 
     // Runs the app by blocking the main thread
-    // #[cfg(not(target_os = "unknown"))]
-    // pub fn block_on(self, init: impl for<'x> AsyncInit<'x>) {
-    //     let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+    #[cfg(not(target_os = "unknown"))]
+    pub fn block_on(self, init: impl for<'x> AsyncInit<'x>) {
+        let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
 
-    //     rt.block_on(async move {
-    //         let mut app = self.build().await.unwrap();
+        rt.block_on(async move {
+            let mut app = self.build().await.unwrap();
 
-    //         init.call(&mut app).await;
+            init.call(&mut app).await;
 
-    //         app.run_blocking();
-    //     });
-    // }
+            app.run_blocking();
+        });
+    }
 
     // Finalizes the app and enters the main loop
-    // pub async fn run(self, init: impl FnOnce(&mut App, RuntimeHandle)) -> ExitStatus {
-    //     let mut app = self.build().await.unwrap();
-    //     let runtime = app.runtime.clone();
-    //     init(&mut app, runtime);
-    //     app.run_blocking()
-    // }
+    pub async fn run(self, init: impl FnOnce(&mut App, RuntimeHandle)) -> ExitStatus {
+        let mut app = self.build().await.unwrap();
+        let runtime = app.runtime.clone();
+        init(&mut app, runtime);
+        app.run_blocking()
+    }
 
-    // #[inline]
-    // pub async fn run_world(self, init: impl FnOnce(&mut World)) -> ExitStatus {
-    //     self.run(|app, _| init(&mut app.world)).await
-    // }
+    #[inline]
+    pub async fn run_world(self, init: impl FnOnce(&mut World)) -> ExitStatus {
+        self.run(|app, _| init(&mut app.world)).await
+    }
 }
 /// Creates a 2-dimensional vector.
 // #[inline(always)]
@@ -661,654 +656,275 @@ pub extern "C" fn Java_dev_rustropy_wry2_SecondActivity_closeActivity(env: JNIEn
     QUIT = true;
    }
 }
-impl AppWrapper{
-    pub fn new()->AppWrapper{
-        let event_loop = EventLoop::new();
-        let window = WindowBuilder::new();
-        // .with_inner_size(winit::dpi::LogicalSize {
-        //     width: 1200,
-        //     height: 800,
-        // });
-        let window = window.build(&event_loop).unwrap();
-        AppWrapper{
-            app:Arc::new(Mutex::new(None)),
-            event_loop:Some(event_loop),
-            window:Some(Arc::new(window)),
-            once:false
-        }
-    }
-    pub fn new_with_event_loop(event_loop:EventLoop<()>)->AppWrapper{
-        // let window = WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize {
-        //     width: 1200,
-        //     height: 800,
-        // });
-        let window = WindowBuilder::new();
+// impl AppWrapper{
+//     pub fn new()->AppWrapper{
+//         let event_loop = EventLoop::new();
+//         let window :Window = Default::default();
+//         // .with_inner_size(winit::dpi::LogicalSize {
+//         //     width: 1200,
+//         //     height: 800,
+//         // });
+//         let window = window.build(&event_loop).unwrap();
+//         AppWrapper{
+//             app:Arc::new(Mutex::new(None)),
+//             event_loop:Some(event_loop),
+//             window:Some(Arc::new(window)),
+//             once:false
+//         }
+//     }
+//     pub fn new_with_event_loop(event_loop:EventLoop<()>)->AppWrapper{
+//         // let window = WindowBuilder::new().with_inner_size(winit::dpi::LogicalSize {
+//         //     width: 1200,
+//         //     height: 800,
+//         // });
+//         let window = WindowBuilder::new();
 
-        let window = window.build(&event_loop).unwrap();
+//         let window = window.build(&event_loop).unwrap();
 
-        AppWrapper{
-            app:Arc::new(Mutex::new(None)),
-            event_loop:Some(event_loop),
-            window:Some(Arc::new(window)),
-            once:false
-        }
-    }
-    #[cfg(not(target_os="android"))]
-    pub fn run_blocking(mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static,box_c:Box<dyn Fn()>) {
-        use tracing::event;
+//         AppWrapper{
+//             app:Arc::new(Mutex::new(None)),
+//             event_loop:Some(event_loop),
+//             window:Some(Arc::new(window)),
+//             once:false
+//         }
+//     }
+//     #[cfg(not(target_os="android"))]
+//     pub fn run_blocking(mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static,box_c:Box<dyn Fn()>) {
+//         use tracing::event;
 
-        if let Some(event_loop) = self.event_loop.take() {
-            let mut quit= false;
-            event_loop.run(move |event, _, control_flow| {
-                // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
-                // but https://github.com/rust-windowing/winit/issues/1968 restricts us
-                if let Event::Resumed = event{
-                    if self.once{
-                        return
-                    }
-                    let window = self.window.clone();
-                    let app_ = self.app.clone();
-                    let i_c = init.clone();
-                    let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
-                    let runtime = rt.handle();
-                    let assets: AssetCache = AssetCache::new(runtime.clone());
-                    let _settings = SettingsKey.get(&assets);
-                    // use ambient_physics::physx::PhysicsKey;
-                    // PhysicsKey.get(&assets); // Load physics
+//         if let Some(event_loop) = self.event_loop.take() {
+//             let mut quit= false;
+//             // event_loop.run_app(move |event, _, control_flow| {
+//             //     // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
+//             //     // but https://github.com/rust-windowing/winit/issues/1968 restricts us
+//             //     if let Event::Resumed = event{
+//             //         if self.once{
+//             //             return
+//             //         }
+//             //         let window = self.window.clone();
+//             //         let app_ = self.app.clone();
+//             //         let i_c = init.clone();
+//             //         let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+//             //         let runtime = rt.handle();
+//             //         let assets: AssetCache = AssetCache::new(runtime.clone());
+//             //         let _settings = SettingsKey.get(&assets);
+//             //         // use ambient_physics::physx::PhysicsKey;
+//             //         // PhysicsKey.get(&assets); // Load physics
 
-                    box_c();
-                    std::thread::spawn( move||{
-                        // thread code
-                        rt.block_on(async move {
-                            let mut app = AppBuilder::simple().build(window).await.unwrap();
+//             //         box_c();
+//             //         std::thread::spawn( move||{
+//             //             // thread code
+//             //             rt.block_on(async move {
+//             //                 let mut app = AppBuilder::simple().build(window).await.unwrap();
 
-                            i_c.call(&mut app).await;
-                            *app_.lock() = Some(app);
-                            use tokio::time::{sleep, Duration};
-                            while !quit{
-                                sleep(Duration::new(20,0)).await;
-                            }
-                        });
-                    });
-                    self.once = true;
-                }else{
-                    let app_ = self.app.clone();
-                    let mut app_ = app_.lock();
-                    if let Some(ref mut app) = *app_{
-                        if let Event::WindowEvent {
-                            window_id,
-                            event:
-                                WindowEvent::ScaleFactorChanged {
-                                    new_inner_size,
-                                    scale_factor,
-                                },
-                        } = &event
-                        {
+//             //                 i_c.call(&mut app).await;
+//             //                 *app_.lock() = Some(app);
+//             //                 use tokio::time::{sleep, Duration};
+//             //                 while !quit{
+//             //                     sleep(Duration::new(20,0)).await;
+//             //                 }
+//             //             });
+//             //         });
+//             //         self.once = true;
+//             //     }else{
+//             //         let app_ = self.app.clone();
+//             //         let mut app_ = app_.lock();
+//             //         if let Some(ref mut app) = *app_{
+//             //             if let Event::WindowEvent {
+//             //                 window_id,
+//             //                 event:
+//             //                     WindowEvent::ScaleFactorChanged {
+//             //                         new_inner_size,
+//             //                         scale_factor,
+//             //                     },
+//             //             } = &event
+//             //             {
 
-                            *app.world.resource_mut(window_scale_factor()) = *scale_factor;
-                            app.handle_static_event(
-                                &Event::WindowEvent {
-                                    window_id: *window_id,
-                                    event: WindowEvent::Resized(**new_inner_size),
-                                },
-                                control_flow,
-                            );
-                        } else if let Some(event_) = event.to_static() {
-                            if let Event::WindowEvent {window_id,  event } = event_.clone(){
-                                match event{
-                                    WindowEvent::Destroyed =>{
-                                        quit = true;
-                                        *control_flow = ControlFlow::Exit;
-                                    }
-                                    _=>{}
-                                }
-                            }
-                            app.handle_static_event(&event_, control_flow);
-                        }
-                    }
+//             //                 *app.world.resource_mut(window_scale_factor()) = *scale_factor;
+//             //                 app.handle_static_event(
+//             //                     &Event::WindowEvent {
+//             //                         window_id: *window_id,
+//             //                         event: WindowEvent::Resized(**new_inner_size),
+//             //                     },
+//             //                     control_flow,
+//             //                 );
+//             //             } else if let Some(event_) = event.to_static() {
+//             //                 if let Event::WindowEvent {window_id,  event } = event_.clone(){
+//             //                     match event{
+//             //                         WindowEvent::Destroyed =>{
+//             //                             quit = true;
+//             //                             *control_flow = ControlFlow::Exit;
+//             //                         }
+//             //                         _=>{}
+//             //                     }
+//             //                 }
+//             //                 app.handle_static_event(&event_, control_flow);
+//             //             }
+//             //         }
 
-                }
+//             //     }
 
-            });
-        } else {
-            // Fake event loop in headless mode
-            loop {
-                let mut control_flow = ControlFlow::default();
-                //let exit_status =
-                    //self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
-                if control_flow == ControlFlow::Exit {
-                    //return exit_status;
-                }
-            }
-        }
-    }
-    #[cfg(target_os="android")]
-    pub fn run_blocking(mut self,init: impl for<'x> AsyncInitAndroid<'x>  +Copy+ Clone+Send+'static,android_app:AndroidApp,box_c:Box<dyn Fn()>) {
-        if let Some(event_loop) = self.event_loop.take() {
-            event_loop.run(move |event: Event<()>, _, control_flow| {
-                // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
-                // but https://github.com/rust-windowing/winit/issues/1968 restricts us
-                *control_flow = ControlFlow::WaitUntil(std::time::Instant::now() +  std::time::Duration::from_millis(16));
-                tracing::info!("ControlFlow::Wait");
-                // unsafe{
-                //     if LOADED{
-                //         tracing::info!("ControlFlow::Wait");
-                //         *control_flow = ControlFlow::WaitUntil(());
-                //     }
-                // }
-                if let Event::Resumed = event {
-                    if self.once{
+//             // });
+//         } else {
+//             // Fake event loop in headless mode
+//             loop {
+//                 let mut control_flow = ControlFlow::default();
+//                 //let exit_status =
+//                     //self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
+//                 // if control_flow == ControlFlow::Exit {
+//                 //     //return exit_status;
+//                 // }
+//             }
+//         }
+//     }
+//     #[cfg(target_os="android")]
+//     pub fn run_blocking(mut self,init: impl for<'x> AsyncInitAndroid<'x>  +Copy+ Clone+Send+'static,android_app:AndroidApp,box_c:Box<dyn Fn()>) {
+//         if let Some(event_loop) = self.event_loop.take() {
+//             event_loop.run(move |event: Event<()>, _, control_flow| {
+//                 // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
+//                 // but https://github.com/rust-windowing/winit/issues/1968 restricts us
+//                 *control_flow = ControlFlow::WaitUntil(std::time::Instant::now() +  std::time::Duration::from_millis(16));
+//                 tracing::info!("ControlFlow::Wait");
+//                 // unsafe{
+//                 //     if LOADED{
+//                 //         tracing::info!("ControlFlow::Wait");
+//                 //         *control_flow = ControlFlow::WaitUntil(());
+//                 //     }
+//                 // }
+//                 if let Event::Resumed = event {
+//                     if self.once{
 
-                        return
-                    }
-                    //*control_flow = ControlFlow::Wait;
-                    let window = self.window.clone();
-                    let app_ = self.app.clone();
-                    let android_app_c = android_app.clone();
-                    let i_c = init.clone();
-                    let mut rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+//                         return
+//                     }
+//                     //*control_flow = ControlFlow::Wait;
+//                     let window = self.window.clone();
+//                     let app_ = self.app.clone();
+//                     let android_app_c = android_app.clone();
+//                     let i_c = init.clone();
+//                     let mut rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
 
-                    let runtime = rt.handle();
-                    let assets: AssetCache = AssetCache::new(runtime.clone());
-                    let _settings = SettingsKey.get(&assets);
-                    box_c();
-                    let in_size: winit::dpi::PhysicalSize<u32> = self.window.clone().unwrap().inner_size();
-                    let width = in_size.width;
-                    let height = in_size.height;
-                    let headless = Some(uvec2(width, height));
-                    let scale_factor = self
-                    .window
-                    .as_ref()
-                    .map(|x| x.scale_factor() as f32)
-                    .unwrap_or(1.) as f64;
-                    tracing::info!("scale_factor {:?}",scale_factor);
-                    std::thread::spawn( move||{
-                        // thread code
-                        rt.block_on(async move {
-                            let mut app = AppBuilder::new()
-                                .ui_renderer(true)
-                                .with_asset_cache(assets)
-                                .headless(headless)
-                                .update_title_with_fps_stats(false)
-                                .build(window).await.unwrap();
+//                     let runtime = rt.handle();
+//                     let assets: AssetCache = AssetCache::new(runtime.clone());
+//                     let _settings = SettingsKey.get(&assets);
+//                     box_c();
+//                     let in_size: winit::dpi::PhysicalSize<u32> = self.window.clone().unwrap().inner_size();
+//                     let width = in_size.width;
+//                     let height = in_size.height;
+//                     let headless = Some(uvec2(width, height));
+//                     let scale_factor = self
+//                     .window
+//                     .as_ref()
+//                     .map(|x| x.scale_factor() as f32)
+//                     .unwrap_or(1.) as f64;
+//                     tracing::info!("scale_factor {:?}",scale_factor);
+//                     std::thread::spawn( move||{
+//                         // thread code
+//                         rt.block_on(async move {
+//                             let mut app = AppBuilder::new()
+//                                 .ui_renderer(true)
+//                                 .with_asset_cache(assets)
+//                                 .headless(headless)
+//                                 .update_title_with_fps_stats(false)
+//                                 .build(window).await.unwrap();
 
-                            *app.world.resource_mut(window_scale_factor()) = scale_factor;
+//                             *app.world.resource_mut(window_scale_factor()) = scale_factor;
 
-                            i_c.call(&mut app,android_app_c).await;
-                            *app_.lock() = Some(app);
-                            unsafe{
-                                LOADED = true;
-                            }
-                            //use tokio::time::{sleep, Duration};
-                            let quit = unsafe{
-                                QUIT
-                            };
+//                             i_c.call(&mut app,android_app_c).await;
+//                             *app_.lock() = Some(app);
+//                             unsafe{
+//                                 LOADED = true;
+//                             }
+//                             //use tokio::time::{sleep, Duration};
+//                             let quit = unsafe{
+//                                 QUIT
+//                             };
 
-                            // while !quit{
-                            //   sleep(Duration::new(5,0)).await;
-                            // }
-                            use std::time::{Duration};
-                            use std::thread::sleep;
-                            loop{
-                                sleep(Duration::new(5,0));
+//                             // while !quit{
+//                             //   sleep(Duration::new(5,0)).await;
+//                             // }
+//                             use std::time::{Duration};
+//                             use std::thread::sleep;
+//                             loop{
+//                                 sleep(Duration::new(5,0));
 
-                            }
-                        });
-                        // unsafe{
-                        //             LOADED = true;
-                        //         }
-                        // use std::time::{Duration};
-                        // use std::thread::sleep;
-                        // loop{
-                        //     sleep(Duration::new(5,0));
+//                             }
+//                         });
+//                         // unsafe{
+//                         //             LOADED = true;
+//                         //         }
+//                         // use std::time::{Duration};
+//                         // use std::thread::sleep;
+//                         // loop{
+//                         //     sleep(Duration::new(5,0));
 
-                        // }
-                    });
-                    self.once = true;
-                }
-                else{
-                    if let Event::WindowEvent {
-                        window_id,
-                        event:
-                            WindowEvent::ScaleFactorChanged {
-                          //      new_inner_size,
-                                scale_factor,..
-                            },
-                    } = &event
-                    {
-                        let app_ = self.app.clone();
-                        let mut app_ = app_.lock();
-                        if let Some(ref mut app) = *app_{
-                            *app.world.resource_mut(window_scale_factor()) = *scale_factor;
-                            tracing::info!("scale_factor sc{:?}",*scale_factor);
-                            app.handle_static_event(
-                                &Event::WindowEvent {
-                                    window_id: *window_id,
-                                    event: WindowEvent::Resized(**new_inner_size),
-                                },
-                                control_flow,
-                            );
-                        }
+//                         // }
+//                     });
+//                     self.once = true;
+//                 }
+//                 else{
+//                     if let Event::WindowEvent {
+//                         window_id,
+//                         event:
+//                             WindowEvent::ScaleFactorChanged {
+//                           //      new_inner_size,
+//                                 scale_factor,..
+//                             },
+//                     } = &event
+//                     {
+//                         let app_ = self.app.clone();
+//                         let mut app_ = app_.lock();
+//                         if let Some(ref mut app) = *app_{
+//                             *app.world.resource_mut(window_scale_factor()) = *scale_factor;
+//                             tracing::info!("scale_factor sc{:?}",*scale_factor);
+//                             app.handle_static_event(
+//                                 &Event::WindowEvent {
+//                                     window_id: *window_id,
+//                                     event: WindowEvent::Resized(**new_inner_size),
+//                                 },
+//                                 control_flow,
+//                             );
+//                         }
 
-                    } else if let Some(event) = event.to_static() {
+//                     } else if let Some(event) = event.to_static() {
 
-                        if let Event::WindowEvent {window_id,  event } = event.clone(){
-                            match event{
-                                WindowEvent::Destroyed =>{
-                                    *control_flow = ControlFlow::Exit;
-                                }
-                                _=>{}
-                            }
-                        }
-                        let app_ = self.app.clone();
-                        let mut app_ = app_.lock();
-                        if let Some(ref mut app) = *app_{
-                            app.handle_static_event(&event, control_flow);
-                        }
+//                         if let Event::WindowEvent {window_id,  event } = event.clone(){
+//                             match event{
+//                                 WindowEvent::Destroyed =>{
+//                                     *control_flow = ControlFlow::Exit;
+//                                 }
+//                                 _=>{}
+//                             }
+//                         }
+//                         let app_ = self.app.clone();
+//                         let mut app_ = app_.lock();
+//                         if let Some(ref mut app) = *app_{
+//                             app.handle_static_event(&event, control_flow);
+//                         }
 
-                    }
-                }
+//                     }
+//                 }
 
-            });
-        } else {
-            // Fake event loop in headless mode
-            // loop {
-            //     let mut control_flow = ControlFlow::default();
-            //     //let exit_status =
-            //         //self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
-            //     if control_flow == ControlFlow::Exit {
-            //         //return exit_status;
-            //     }
-            // }
-        }
-    }
-}
-pub struct App {
-    pub world: World,
-    pub ctl_rx: flume::Receiver<WindowCtl>,
-    pub systems: SystemGroup,
-    pub gpu_world_sync_systems: SystemGroup<GpuWorldSyncEvent>,
-    pub window_event_systems: SystemGroup<Event<'static, ()>>,
-    pub runtime: RuntimeHandle,
-    pub window: Option<Arc<Window>>,
-    //event_loop: Option<EventLoop<()>>,
-    fps: FpsCounter,
-    #[cfg(feature = "profile")]
-    _puffin: Option<puffin_http::Server>,
-    modifiers: ModifiersState,
+//             });
+//         } else {
+//             // Fake event loop in headless mode
+//             // loop {
+//             //     let mut control_flow = ControlFlow::default();
+//             //     //let exit_status =
+//             //         //self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
+//             //     if control_flow == ControlFlow::Exit {
+//             //         //return exit_status;
+//             //     }
+//             // }
+//         }
+//     }
+// }
 
-    window_focused: bool,
-    update_title_with_fps_stats: bool,
-    #[cfg(target_os = "unknown")]
-    _drop_handles: Vec<Box<dyn std::fmt::Debug>>,
-    current_time: Instant,
-
-    #[cfg(target_os = "unknown")]
-    force_resize_event_rx: flume::Receiver<(u32, u32)>,
-}
-
-impl std::fmt::Debug for App {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut d = f.debug_struct("App");
-        d.field("world", &self.world)
-            .field("systems", &self.systems)
-            .field("gpu_world_sync_systems", &self.gpu_world_sync_systems)
-            .field("window_event_systems", &self.window_event_systems)
-            .field("runtime", &self.runtime)
-            .field("window", &self.window)
-            .field("fps", &self.fps)
-            .field("window_focused", &self.window_focused);
-
-        #[cfg(feature = "profile")]
-        d.field("puffin", &true);
-        #[cfg(not(feature = "profile"))]
-        d.field("puffin", &false);
-
-        d.finish()
-    }
-}
-impl App {
-    pub fn builder() -> AppBuilder {
-        AppBuilder::new()
-    }
-
-    #[cfg(target_os = "unknown")]
-    pub fn spawn(mut self) {
-        use winit::platform::web::EventLoopExtWebSys;
-
-        let event_loop = self.event_loop.take().unwrap();
-
-        tracing::debug!("Spawning event loop");
-        event_loop.spawn(move |event, _, control_flow| {
-            // HACK(philpax): hackfix for https://github.com/AmbientRun/Ambient/issues/923
-            // remove after https://github.com/AmbientRun/Ambient/issues/1096
-            // inject resize events if required
-            if let Event::WindowEvent { window_id, .. } = &event {
-                if let Ok((width, height)) = self.force_resize_event_rx.try_recv() {
-                    self.handle_static_event(
-                        &Event::WindowEvent {
-                            window_id: *window_id,
-                            event: WindowEvent::Resized(winit::dpi::PhysicalSize::new(
-                                width, height,
-                            )),
-                        },
-                        control_flow,
-                    );
-                }
-            }
-
-            // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
-            // but https://github.com/rust-windowing/winit/issues/1968 restricts us
-            if let Event::WindowEvent {
-                window_id,
-                event:
-                    WindowEvent::ScaleFactorChanged {
-                        new_inner_size,
-                        scale_factor,
-                    },
-            } = &event
-            {
-                *self.world.resource_mut(window_scale_factor()) = *scale_factor;
-                self.handle_static_event(
-                    &Event::WindowEvent {
-                        window_id: *window_id,
-                        event: WindowEvent::Resized(**new_inner_size),
-                    },
-                    control_flow,
-                );
-            } else if let Some(event) = event.to_static() {
-                self.handle_static_event(&event, control_flow);
-            } else {
-                tracing::error!("Failed to convert event to static")
-            }
-        });
-    }
-
-    // pub fn run_blocking(mut self,init: impl for<'x> AsyncInit<'x>) -> ExitStatus {
-    //     if let Some(event_loop) = self.event_loop.take() {
-    //         let init_c = Arc::new(Box::new(init));
-    //         event_loop.run(move |event, _, control_flow| {
-    //             // HACK(philpax): treat dpi changes as resize events. Ideally we'd handle this in handle_event proper,
-    //             // but https://github.com/rust-windowing/winit/issues/1968 restricts us
-    //             if let Event::Resumed = event{
-    //                 let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
-    //                 let app_ = Arc::new(Mutex::new(None));
-    //                 let app_c = app_.clone();
-    //                 let init_c = init_c.clone();
-    //                 rt.block_on(async move {
-    //                     let mut app = AppBuilder::simple().build().await.unwrap();
-    //                     *app_c.lock() = Some(app);
-
-    //                 });
-    //                 let app =app_.lock();
-    //                 //init.call(app).await;
-    //             }else{
-    //                 if let Event::WindowEvent {
-    //                     window_id,
-    //                     event:
-    //                         WindowEvent::ScaleFactorChanged {
-    //                             new_inner_size,
-    //                             scale_factor,
-    //                         },
-    //                 } = &event
-    //                 {
-    //                     *self.world.resource_mut(window_scale_factor()) = *scale_factor;
-    //                     self.handle_static_event(
-    //                         &Event::WindowEvent {
-    //                             window_id: *window_id,
-    //                             event: WindowEvent::Resized(**new_inner_size),
-    //                         },
-    //                         control_flow,
-    //                     );
-    //                 } else if let Some(event) = event.to_static() {
-    //                     self.handle_static_event(&event, control_flow);
-    //                 }
-    //             }
-
-    //         });
-    //     } else {
-    //         // Fake event loop in headless mode
-    //         loop {
-    //             let mut control_flow = ControlFlow::default();
-    //             let exit_status =
-    //                 self.handle_static_event(&Event::MainEventsCleared, &mut control_flow);
-    //             if control_flow == ControlFlow::Exit {
-    //                 return exit_status;
-    //             }
-    //         }
-    //     }
-    // }
-
-    pub fn handle_static_event(
-        &mut self,
-        event: &Event<'static, ()>,
-        control_flow: &mut ControlFlow,
-    ) -> ExitStatus {
-        *control_flow = ControlFlow::Poll;
-
-        // From: https://github.com/gfx-rs/wgpu/issues/1783
-        // TODO: According to the issue we should cap the framerate instead
-        #[cfg(target_os = "macos")]
-        if !self.window_focused {
-            *control_flow = ControlFlow::Wait;
-        }
-
-        let world = &mut self.world;
-        let systems = &mut self.systems;
-        let gpu_world_sync_systems = &mut self.gpu_world_sync_systems;
-        world.resource(gpu()).device.poll(wgpu::Maintain::Poll);
-
-        self.window_event_systems.run(world, event);
-        let quit =unsafe {
-            QUIT
-        };
-        if quit{
-            *control_flow = ControlFlow::Exit;
-            return ExitStatus::SUCCESS
-        }
-        match event {
-            Event::MainEventsCleared => {
-                let frame_start = Instant::now();
-                let external_time = frame_start.duration_since(self.current_time);
-                // Handle window control events
-                for v in self.ctl_rx.try_iter() {
-                    tracing::trace!(?v, "window control");
-                    match v {
-                        WindowCtl::GrabCursor(mode) => {
-                            if let Some(window) = &self.window {
-                                match mode {
-                                    CursorGrabMode::Confined | CursorGrabMode::Locked => {
-                                        // Move the cursor to the centre of the window to ensure
-                                        // the cursor is within the window and will not be locked
-                                        // in place outside the window.
-                                        //
-                                        // Without this, on macOS, the cursor will be locked in place
-                                        // and visible outside the window, which means the user can
-                                        // click on other aspects of the operating system while
-                                        // the cursor is locked.
-                                        let (width, height) =
-                                            <(u32, u32)>::from(window.inner_size());
-                                        window
-                                            .set_cursor_position(PhysicalPosition::new(
-                                                width / 2,
-                                                height / 2,
-                                            ))
-                                            .ok();
-
-                                    }
-                                    _ => {}
-                                }
-                                window.set_cursor_grab(mode).ok();
-                            }
-                        }
-                        WindowCtl::ShowCursor(show) => {
-                            if let Some(window) = &self.window {
-                                window.set_cursor_visible(show);
-                            }
-                        }
-                        WindowCtl::SetCursorIcon(icon) => {
-                            if let Some(window) = &self.window {
-                                window.set_cursor_icon(icon);
-                            }
-                        }
-                        WindowCtl::SetTitle(title) => {
-                            if let Some(window) = &self.window {
-                                window.set_title(&title);
-                            }
-                        }
-                        WindowCtl::SetFullscreen(fullscreen) => {
-                            if let Some(window) = &self.window {
-                                window.set_fullscreen(if fullscreen {
-                                    Some(Fullscreen::Borderless(None))
-                                } else {
-                                    None
-                                });
-                            }
-                        }
-                        WindowCtl::ExitProcess(exit_status) => {
-                            *control_flow = ControlFlow::Exit;
-                            return exit_status;
-                        }
-                    }
-                }
-
-                profiling::scope!("frame");
-                world.next_frame();
-
-                {
-                    profiling::scope!("systems");
-                    systems.run(world, &FrameEvent);
-                    gpu_world_sync_systems.run(world, &GpuWorldSyncEvent);
-                }
-
-                if let Some(fps) = self.fps.frame_next() {
-                    world
-                        .set(world.resource_entity(), self::fps_stats(), fps.clone())
-                        .unwrap();
-                    if self.update_title_with_fps_stats {
-                        if let Some(window) = &self.window {
-                            window.set_title(&format!(
-                                "{} [{}, {} entities]",
-                                world.resource(window_title()),
-                                fps.dump_both(),
-                                world.len()
-                            ));
-                        }
-                    }
-                }
-
-                if let Some(window) = &self.window {
-                    window.request_redraw();
-                }
-
-                let frame_end = Instant::now();
-
-                let frame_time = frame_end.duration_since(self.current_time);
-
-                tracing::debug!(?external_time, ?frame_time, "frame time");
-                self.current_time = frame_end;
-
-                let samples = world.resource_mut(performance_samples());
-
-                if samples.len() >= 128 {
-                    samples.remove(0);
-                }
-
-                samples.push(PerformanceSample {
-                    frame_time,
-                    external_time,
-                });
-
-                profiling::finish_frame!();
-            }
-
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::Focused(focused) => {
-                    self.window_focused = *focused;
-                }
-                WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                    tracing::info!("scale factor {:?}",*scale_factor);
-                    *self.world.resource_mut(window_scale_factor()) = *scale_factor;
-                }
-                WindowEvent::Resized(size) => {
-                    let gpu = world.resource(gpu()).clone();
-                    gpu.resize(*size);
-
-                    let size = uvec2(size.width, size.height);
-                    if let Some(window) = &self.window {
-                        let scale_factor = window.scale_factor();
-                        let logical_size = (size.as_dvec2() / scale_factor).as_uvec2();
-                        tracing::info!("logical size {:?}",logical_size);
-                        world
-                            .set_if_changed(world.resource_entity(), window_physical_size(), size)
-                            .unwrap();
-                        world
-                            .set_if_changed(
-                                world.resource_entity(),
-                                window_logical_size(),
-                                logical_size,
-                            )
-                            .unwrap();
-                    }
-                }
-                WindowEvent::CloseRequested => {
-                    tracing::info!("Closing...");
-                    *control_flow = ControlFlow::Exit;
-                }
-                WindowEvent::KeyboardInput { event, .. } => {
-                    if event.state == ElementState::Pressed {
-                        if let VirtualKeyCode::Q = event.physical_key {
-                            if self.modifiers.logo() {
-                                *control_flow = ControlFlow::Exit;
-                            }
-                        }
-                    }
-                    // if let Some(keycode) = input.virtual_keycode {
-                    //     if input.state == ElementState::Pressed {
-                    //         if let VirtualKeyCode::Q = keycode {
-                    //             if self.modifiers.logo() {
-                    //                 *control_flow = ControlFlow::Exit;
-                    //             }
-                    //         }
-                    //     }
-                    // }
-                }
-                WindowEvent::ModifiersChanged(state) => {
-                    self.modifiers = *state;
-                }
-                WindowEvent::CursorMoved { position, .. } => {
-                    if self.window_focused {
-                        let p = vec2(position.x as f32, position.y as f32)
-                            / self
-                                .window
-                                .as_ref()
-                                .map(|x| x.scale_factor() as f32)
-                                .unwrap_or(1.);
-                        world
-                            .set(world.resource_entity(), cursor_position(), p)
-                            .unwrap();
-                    }
-                }
-                WindowEvent::Destroyed => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-        ExitStatus::SUCCESS
-    }
-    pub fn add_system(&mut self, system: DynSystem) -> &mut Self {
-        self.systems.add(system);
-        self
-    }
-}
 
 #[derive(Debug)]
 pub struct ExamplesSystem;
-impl System<Event<'static, ()>> for ExamplesSystem {
+impl System<Event<()>> for ExamplesSystem {
     #[allow(clippy::single_match)]
-    fn run(&mut self, world: &mut World, event: &Event<'static, ()>) {
+    fn run(&mut self, world: &mut World, event: &Event< ()>) {
         match event {
             Event::WindowEvent {
                 event:

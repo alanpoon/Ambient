@@ -100,7 +100,7 @@ impl GpuRun {
 
     pub async fn run<In: WgslType, Out: WgslType>(
         self,
-        gpu: &Gpu<'_>,
+        gpu: &Gpu,
         assets: &AssetCache,
         input: In,
     ) -> Out {
@@ -178,7 +178,7 @@ mod test {
     #[tokio::test]
     async fn test_gpu_run() {
         use crate::gpu::Gpu;
-        let gpu = Arc::new(Gpu::new(None).await.unwrap());
+        let gpu = Arc::new(Gpu::new(None,None).await.unwrap());
         let assets = AssetCache::new(tokio::runtime::Handle::current());
         GpuKey.insert(&assets, gpu.clone());
         let input = Vec4::ONE;

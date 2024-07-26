@@ -7,11 +7,14 @@ use ambient_ecs::{
 };
 use glam::{vec2, Vec2};
 use serde::{Deserialize, Serialize};
-use winit::event::{ModifiersState, TouchPhase};
+use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
+use winit::event::Modifiers;
+use winit::event::{ TouchPhase};
 pub use winit::event::{
-    DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode,
+    DeviceEvent, ElementState, Event, MouseButton, MouseScrollDelta,
     WindowEvent,
 };
+use winit::event::WindowEvent::KeyboardInput;
 pub use ambient_ecs::generated::app::components::{
     cursor_position,last_touch_position
 };
@@ -48,7 +51,7 @@ pub fn init_all_components() {
     init_components();
 }
 
-pub fn event_systems() -> SystemGroup<Event<'static, ()>> {
+pub fn event_systems() -> SystemGroup<Event<()>> {
     SystemGroup::new("inputs", vec![Box::new(InputSystem::new())])
 }
 
@@ -135,8 +138,8 @@ impl InputSystem {
     }
 }
 
-impl System<Event<'static, ()>> for InputSystem {
-    fn run(&mut self, world: &mut ambient_ecs::World, event: &Event<'static, ()>) {
+impl System<Event<()>> for InputSystem {
+    fn run(&mut self, world: &mut ambient_ecs::World, event: &Event<()>) {
         match event {
             Event::WindowEvent { event, .. } => match event {
                 &WindowEvent::Focused(focused) => {
@@ -145,32 +148,34 @@ impl System<Event<'static, ()>> for InputSystem {
                         .resource_mut(world_events())
                         .add_message(messages::WindowFocusChange::new(focused));
                 }
-                WindowEvent::ReceivedCharacter(c) => {
-                    // HACK: Drop the following characters as they will be produced
-                    // by `KeyboardInput` instead.
-                    if [
-                        '\u{1b}', // Escape
-                        '\t',     // Tab
-                        '\u{7f}', // Delete
-                        '\u{8}',  // Backspace
-                        '\r',     // Return
-                        '\n',     // Newline
-                    ]
-                    .contains(c)
-                    {
-                        return;
-                    }
 
-                    world
-                        .resource_mut(world_events())
-                        .add_message(messages::WindowKeyboardCharacter::new(c.to_string()));
-                }
+                // WindowEvent::ReceivedCharacter(c) => {
+                //     // HACK: Drop the following characters as they will be produced
+                //     // by `KeyboardInput` instead.
+                //     if [
+                //         '\u{1b}', // Escape
+                //         '\t',     // Tab
+                //         '\u{7f}', // Delete
+                //         '\u{8}',  // Backspace
+                //         '\r',     // Return
+                //         '\n',     // Newline
+                //     ]
+                //     .contains(c)
+                //     {
+                //         return;
+                //     }
+
+                //     world
+                //         .resource_mut(world_events())
+                //         .add_message(messages::WindowKeyboardCharacter::new(c.to_string()));
+                // }
 
                 WindowEvent::ModifiersChanged(mods) => {
-                    self.modifiers = *mods;
+
+                    self.modifiers = mods.state();
                     world
                         .resource_mut(world_events())
-                        .add_message(messages::WindowKeyboardModifiersChange::new(mods.bits()));
+                        .add_message(messages::WindowKeyboardModifiersChange::new(mods.state().bits()));
                 }
 
                 WindowEvent::CloseRequested => {
@@ -179,13 +184,15 @@ impl System<Event<'static, ()>> for InputSystem {
                         .add_message(messages::WindowClose::new());
                 }
 
-                WindowEvent::KeyboardInput { input, .. } => {
-                    let keycode = input
-                        .virtual_keycode
-                        .map(|key| ambient_shared_types::VirtualKeyCode::from(key).to_string());
+                WindowEvent::KeyboardInput { event, .. } => {
 
+                    let keycode = if let PhysicalKey::Code(c) =event.physical_key{
+                        ambient_shared_types::VirtualKeyCode::from(c).to_string()
+                    }else{
+                        String::from("unidentified")
+                    };
                     let modifiers = self.modifiers.bits();
-                    let pressed = match input.state {
+                    let pressed = match event.state {
                         ElementState::Pressed => true,
                         ElementState::Released => false,
                     };

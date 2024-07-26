@@ -21,7 +21,7 @@ tracing-subscriber = { version = "0.3.17", features = [
     "parking_lot",
 ] }
 wgpu = { version = "22.0.0", features = ["serde", "replay"],git ="https://github.com/gfx-rs/wgpu",branch="trunk" }
-wgpu-types = { version = "0.16", features = ["serde"] }
+wgpu-types = { version = "22.0.0", features = ["serde"] }
 winit = { version = "0.30.4", features = ["serde"] }
 futures = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1.32", features = ["parking_lot"] }
@@ -155,7 +155,7 @@ md-5 = "0.10"
 pollster = "0.3.0"
 rpassword = "7.2"
 sha2 = "0.10"
-
+log = "0.4"
 cfg-if = "1.0"
 
 # Web Client
@@ -199,6 +199,19 @@ wasi-cap-std-sync = { version = "16.0.0",git = "https://github.com/jmp-0x7C0/was
 wit-bindgen-core = "0.9.0"
 wit-bindgen-rust = "0.9.0"
 wit-component = "0.11.0"
+
+raw-window-handle = "0.6"
+# macOS, iOS
+libc = "0.2"
+objc = "0.2.7"
+core-graphics = "0.23.1"
+
+# android target
+android_logger = "0.14"
+jni = "0.21"
+jni_fn = "0.1"
+ndk-sys = "0.4.1"
+ash = "0.38"
 
 [profile.dev.package.cranelift-codegen]
 opt-level = 3

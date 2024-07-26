@@ -21,7 +21,7 @@ pub fn init_all_components() {
     spherical::init_components();
 }
 
-pub fn assets_camera_systems() -> SystemGroup<Event<'static, ()>> {
+pub fn assets_camera_systems() -> SystemGroup<Event<()>> {
     SystemGroup::new(
         "assets_camera_systems",
         vec![

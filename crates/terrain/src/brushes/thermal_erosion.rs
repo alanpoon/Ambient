@@ -85,6 +85,8 @@ impl ThermalErosionCompute {
                 ),
                 module: &shader,
                 entry_point: "main",
+                compilation_options:None,
+                cache:None
             })
     }
     pub fn run(
@@ -119,7 +121,7 @@ impl ThermalErosionCompute {
             ],
         });
 
-        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None,timestamp_writes:None });
         cpass.set_pipeline(&self.pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.dispatch_workgroups(size.x, size.y, 1);

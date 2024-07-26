@@ -208,10 +208,12 @@ impl ShadowsRenderer {
                     view: &cascade.dynamic_target,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(0.0),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                occlusion_query_set:None,
+                timestamp_writes:None
             });
 
             let globals = cascade.globals.create_bind_group(gpu, assets, mesh_buffer);

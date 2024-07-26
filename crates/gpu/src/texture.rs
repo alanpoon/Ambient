@@ -581,7 +581,7 @@ impl TextureReader {
     }
 
     /// Reads the whole texture async
-    pub async fn read(&self, gpu: &Gpu<'_>) -> Option<Vec<u8>> {
+    pub async fn read(&self, gpu: &Gpu) -> Option<Vec<u8>> {
         let buffer_slice = self.staging_output_buffer.slice(..);
         let (tx, buffer_future) = tokio::sync::oneshot::channel();
         buffer_slice.map_async(wgpu::MapMode::Read, |v| {
@@ -617,7 +617,7 @@ impl TextureReader {
         }
     }
 
-    pub async fn read_array_f32(&self, gpu: &Gpu<'_>) -> Option<Array4<f32>> {
+    pub async fn read_array_f32(&self, gpu: &Gpu) -> Option<Array4<f32>> {
         if let Some(bytes) = self.read(gpu).await.clone() {
             let mut numbers = vec![
                 0.;
@@ -643,12 +643,12 @@ impl TextureReader {
             None
         }
     }
-    pub async fn read_image(&self, gpu: &Gpu<'_>) -> Option<DynamicImage> {
+    pub async fn read_image(&self, gpu: &Gpu) -> Option<DynamicImage> {
         self.read_images(gpu)
             .await
             .map(|mut images| images.pop().unwrap())
     }
-    pub async fn read_png(&self, gpu: &Gpu<'_>) -> Option<Vec<u8>> {
+    pub async fn read_png(&self, gpu: &Gpu) -> Option<Vec<u8>> {
         self.read_image(gpu).await.and_then(|image| {
             let mut data = Cursor::new(Vec::new());
             image
@@ -657,7 +657,7 @@ impl TextureReader {
             Some(data.into_inner())
         })
     }
-    pub async fn read_images(&self, gpu: &Gpu<'_>) -> Option<Vec<DynamicImage>> {
+    pub async fn read_images(&self, gpu: &Gpu) -> Option<Vec<DynamicImage>> {
         if self.format == wgpu::TextureFormat::R32Float {
             let array = self.read_array_f32(gpu).await?;
             Some(
@@ -724,11 +724,11 @@ impl TextureReader {
             unimplemented!("{:?}", self.format)
         }
     }
-    pub async fn write_to_file(&self, gpu: &Gpu<'_>, path: impl AsRef<Path>) {
+    pub async fn write_to_file(&self, gpu: &Gpu, path: impl AsRef<Path>) {
         let image = self.read_image(gpu).await.unwrap().into_rgba8();
         image.save(path).unwrap();
     }
-    pub async fn write_to_files(&self, gpu: &Gpu<'_>, path: &str) {
+    pub async fn write_to_files(&self, gpu: &Gpu, path: &str) {
         let images = self.read_images(gpu).await.unwrap();
         for (i, image) in images.into_iter().enumerate() {
             image.save(&format!("{path}_{i}.png")).unwrap();
@@ -815,7 +815,7 @@ mod tests {
     #[tokio::test]
     async fn test_read_texture() {
         use std::sync::Arc;
-        let gpu = Arc::new(Gpu::new(None).await.unwrap());
+        let gpu = Arc::new(Gpu::new(None,None).await.unwrap());
         let tex = Texture::new_with_data(
             &gpu,
             &wgpu::TextureDescriptor {

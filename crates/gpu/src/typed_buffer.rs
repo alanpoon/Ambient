@@ -248,7 +248,7 @@ impl<T: Pod> TypedBuffer<T> {
     /// Reads a range from the buffer. The range is defined in items; i.e. 1..3 means read item 1 through 3 (not bytes).
     pub async fn read(
         &self,
-        gpu: &Gpu<'_>,
+        gpu: &Gpu,
         bounds: impl RangeBounds<usize>,
     ) -> Result<Vec<T>, BufferAsyncError> {
         // Convert the bounds to byte offsets

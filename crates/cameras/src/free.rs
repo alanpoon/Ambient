@@ -2,7 +2,7 @@ use ambient_core::{camera::*, transform::*};
 use ambient_ecs::{components, query_mut, Entity, EntityId, SystemGroup};
 use derive_more::Display;
 use glam::vec2;
-use winit::event::{DeviceEvent, ElementState, Event, VirtualKeyCode, WindowEvent};
+use winit::{event::{DeviceEvent, ElementState, Event, WindowEvent}, keyboard::{KeyCode, PhysicalKey}};
 
 use super::camera_movement_speed;
 
@@ -43,7 +43,7 @@ pub fn new(position: glam::Vec3, orientation: glam::Vec2) -> Entity {
         .with(camera_movement_speed(), 0.1)
 }
 
-pub fn free_camera_system() -> SystemGroup<Event<'static, ()>> {
+pub fn free_camera_system() -> SystemGroup<Event<()>> {
     SystemGroup::new(
         "free_camera_system",
         vec![query_mut(
@@ -67,35 +67,36 @@ pub fn free_camera_system() -> SystemGroup<Event<'static, ()>> {
                         free_camera.orientation += vec2(delta.0 as f32, delta.1 as f32) * speed;
                     }
                     Event::WindowEvent {
-                        event: WindowEvent::KeyboardInput { input, .. },
+                        event: WindowEvent::KeyboardInput { event, .. },
                         ..
                     } => {
-                        let is_pressed = input.state == ElementState::Pressed;
-                        if let Some(keycode) = input.virtual_keycode {
+                        let is_pressed = event.state == ElementState::Pressed;
+
+                        if let PhysicalKey::Code(keycode) = event.physical_key {
                             match keycode {
-                                VirtualKeyCode::E => free_camera.is_up_pressed = is_pressed,
-                                VirtualKeyCode::Q => free_camera.is_down_pressed = is_pressed,
-                                VirtualKeyCode::W | VirtualKeyCode::Up => {
+                                KeyCode::KeyE => free_camera.is_up_pressed = is_pressed,
+                                KeyCode::KeyQ => free_camera.is_down_pressed = is_pressed,
+                                KeyCode::KeyW | KeyCode::ArrowUp => {
                                     free_camera.is_forward_pressed = is_pressed
                                 }
-                                VirtualKeyCode::A | VirtualKeyCode::Left => {
+                                KeyCode::KeyA | KeyCode::ArrowLeft => {
                                     free_camera.is_left_pressed = is_pressed
                                 }
-                                VirtualKeyCode::S | VirtualKeyCode::Down => {
+                                KeyCode::KeyS | KeyCode::ArrowDown => {
                                     free_camera.is_backward_pressed = is_pressed
                                 }
-                                VirtualKeyCode::D | VirtualKeyCode::Right => {
+                                KeyCode::KeyD | KeyCode::ArrowRight => {
                                     free_camera.is_right_pressed = is_pressed
                                 }
-                                VirtualKeyCode::R => *speed *= 2.0,
-                                VirtualKeyCode::F => *speed /= 2.0,
-                                VirtualKeyCode::T => *far *= 2.0,
-                                VirtualKeyCode::G => *far /= 2.0,
+                                KeyCode::KeyR => *speed *= 2.0,
+                                KeyCode::KeyF => *speed /= 2.0,
+                                KeyCode::KeyT => *far *= 2.0,
+                                KeyCode::KeyG => *far /= 2.0,
                                 _ => {}
                             }
                         }
                     }
-                    Event::RedrawRequested(_) => {
+                    Event::WindowEvent {  event:WindowEvent::RedrawRequested,.. }=>{
                         let mut velocity = glam::Vec3::ZERO;
                         if free_camera.is_up_pressed {
                             velocity += glam::Vec3::Z;

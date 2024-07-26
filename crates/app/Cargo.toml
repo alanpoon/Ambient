@@ -40,6 +40,8 @@ puffin_http = { workspace = true, optional = true }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 tokio = {workspace = true}
+app-surface = {path = "../app-surface"}
+log = "0.4"
 
 [dev-dependencies]
 ambient_primitives = { path = "../primitives" , version = "0.3.1-dev" }

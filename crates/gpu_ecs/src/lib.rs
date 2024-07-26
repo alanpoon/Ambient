@@ -228,9 +228,9 @@ impl GpuComponentsBuffer {
 }
 
 #[derive(Debug)]
-pub struct GpuWorldUpdate<'a>(pub Arc<Gpu<'a>>);
-impl <'a>System<GpuWorldSyncEvent<'a>> for GpuWorldUpdate<'a> {
-    fn run(&mut self, world: &mut World, _event: &GpuWorldSyncEvent<'a>) {
+pub struct GpuWorldUpdate(pub Arc<Gpu>);
+impl System<GpuWorldSyncEvent> for GpuWorldUpdate {
+    fn run(&mut self, world: &mut World, _event: &GpuWorldSyncEvent) {
         profiling::scope!("GpuWorldUpdate.run");
         world
             .resource_mut(gpu_world())

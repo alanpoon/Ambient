@@ -12,5 +12,5 @@ edition = "2021"
 
 serde.workspace = true
 glam.workspace = true
-wgpu-types = { workspace = true, features = ["serde", "trace", "replay"] }
+wgpu-types = { workspace = true, features = ["serde"] }
 toml.workspace = true

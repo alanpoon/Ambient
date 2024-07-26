@@ -26,7 +26,7 @@ components!("app-renderers", {
     main_renderer: Arc<Mutex<MainRenderer>>,
 });
 
-pub fn systems() -> SystemGroup<Event<'static, ()>> {
+pub fn systems() -> SystemGroup<Event<()>> {
     SystemGroup::new(
         "app_renderers",
         vec![
@@ -46,10 +46,11 @@ pub fn systems() -> SystemGroup<Event<'static, ()>> {
                             //123
                             // let new_inner_size = inner_size_writer.
                             // ui_render.resize(&gpu, new_inner_size);
-                        }
+                        },
+
                         _ => {}
                     }
-                    let cleared = matches!(event, Event::MainEventsCleared);
+                    let cleared = matches!(event, Event::Resumed);
                     if cleared {
                         ui_render.render(&gpu, world);
                     }
@@ -59,12 +60,16 @@ pub fn systems() -> SystemGroup<Event<'static, ()>> {
                 let gpu = world.resource(gpu()).clone();
                 for (_, main_renderer) in q.collect_cloned(world, qs) {
                     let mut main_renderer = main_renderer.lock();
+
                     match event {
                         Event::WindowEvent {
                             event: WindowEvent::Resized(size),
                             ..
                         } => main_renderer.resize(&gpu, size),
-                        Event::MainEventsCleared => {
+                        Event::WindowEvent {
+                            event: WindowEvent::RedrawRequested,
+                            ..
+                        } => {
                             main_renderer.run(world, &FrameEvent);
                         }
                         _ => {}

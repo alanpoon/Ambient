@@ -439,7 +439,7 @@ impl Renderer {
                             } else {
                                 wgpu::LoadOp::Load
                             },
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     }),
                     Some(wgpu::RenderPassColorAttachment {
@@ -452,7 +452,7 @@ impl Renderer {
                             } else {
                                 wgpu::LoadOp::Load
                             },
-                            store: true,
+                            store: wgpu::StoreOp::Store,
                         },
                     }),
                 ],
@@ -464,10 +464,12 @@ impl Renderer {
                         } else {
                             wgpu::LoadOp::Load
                         },
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                timestamp_writes:None,
+                occlusion_query_set:None
             });
 
             render_pass.set_index_buffer(
@@ -535,17 +537,19 @@ impl Renderer {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: target.depth_stencil(),
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
+                timestamp_writes:None,
+                occlusion_query_set:None
             });
 
             render_pass.set_index_buffer(

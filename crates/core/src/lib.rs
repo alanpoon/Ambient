@@ -40,7 +40,7 @@ components!("app", {
     @[Resource]
     runtime: RuntimeHandle,
     @[Resource]
-    gpu: Arc<Gpu<'static>>,
+    gpu: Arc<Gpu>,
     @[Debuggable]
     mesh: Arc<GpuMesh>,
 

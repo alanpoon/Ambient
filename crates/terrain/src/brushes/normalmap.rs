@@ -60,6 +60,9 @@ impl NormalmapFromHeightmapCompute {
                     )),
                     module: &shader,
                     entry_point: "main",
+                    compilation_options:None,
+                    cache:None
+
                 });
         Self { pipeline }
     }
@@ -87,7 +90,7 @@ impl NormalmapFromHeightmapCompute {
             ],
         });
 
-        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None,timestamp_writes:None });
         cpass.set_pipeline(&self.pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.dispatch_workgroups(size.x, size.y, 1);

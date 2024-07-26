@@ -36,6 +36,7 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
 cfg-if = { workspace = true }
+app-surface = {path = "../app-surface"}
 
 [features]
 hotload-includes = ['ambient_native_std/hotload-includes']

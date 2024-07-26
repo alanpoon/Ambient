@@ -323,6 +323,7 @@ impl RendererCollect {
         {
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("Collect"),
+                timestamp_writes:None,
             });
 
             cpass.set_pipeline(self.pipeline.pipeline());
