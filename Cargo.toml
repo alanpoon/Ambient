@@ -22,7 +22,7 @@ tracing-subscriber = { version = "0.3.17", features = [
 ] }
 wgpu = { version = "22.0.0", features = ["serde", "replay"],git ="https://github.com/gfx-rs/wgpu",branch="trunk" }
 wgpu-types = { version = "22.0.0", features = ["serde"] }
-winit = { version = "0.30.4", features = ["serde"] }
+winit = { version = "0.29.15", features = ["serde"] }
 futures = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1.32", features = ["parking_lot"] }
 bytemuck = { version = "1.14", features = ["derive"] }
