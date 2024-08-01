@@ -43,11 +43,10 @@ use crate::{renderers::{main_renderer, ui_renderer, MainRenderer, UiRenderer}, A
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, Event, KeyEvent, WindowEvent::KeyboardInput, TouchPhase, WindowEvent},
-    event_loop::{ControlFlow, EventLoop,ActiveEventLoop},
+    event_loop::{ControlFlow, EventLoop},
     keyboard::{ModifiersState},
     window::{CursorGrabMode, Fullscreen, Window,WindowId},
 };
-use winit::application::ApplicationHandler;
 use winit::keyboard::PhysicalKey;
 use winit::keyboard::KeyCode;
 use crate::{fps_stats,AsyncInit,window_title};
@@ -59,55 +58,23 @@ pub struct App {
     pub gpu_world_sync_systems: SystemGroup<GpuWorldSyncEvent>,
     pub window_event_systems: SystemGroup<Event< ()>>,
     pub runtime: RuntimeHandle,
-    pub window: Option<Arc<Window>>,
+    //pub window: Option<Arc<Window>>,
     //event_loop: Option<EventLoop<()>>,
-    fps: FpsCounter,
+    pub fps: FpsCounter,
     #[cfg(feature = "profile")]
     _puffin: Option<puffin_http::Server>,
-    modifiers: ModifiersState,
+    pub modifiers: ModifiersState,
 
-    window_focused: bool,
-    update_title_with_fps_stats: bool,
+    pub window_focused: bool,
+    pub update_title_with_fps_stats: bool,
     #[cfg(target_os = "unknown")]
     _drop_handles: Vec<Box<dyn std::fmt::Debug>>,
-    current_time: Instant,
+    pub current_time: Instant,
 
     #[cfg(target_os = "unknown")]
     force_resize_event_rx: flume::Receiver<(u32, u32)>,
 }
 
-
-impl ApplicationHandler for App {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        self.window = Some(Arc::new(event_loop.create_window(Window::default_attributes()).unwrap()));
-    }
-
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
-        match event {
-            WindowEvent::CloseRequested => {
-                println!("The close button was pressed; stopping");
-                event_loop.exit();
-            },
-            WindowEvent::RedrawRequested => {
-                // Redraw the application.
-                //
-                // It's preferable for applications that do not render continuously to render in
-                // this event rather than in AboutToWait, since rendering in here allows
-                // the program to gracefully handle redraws requested by the OS.
-
-                // Draw.
-
-                // Queue a RedrawRequested event.
-                //
-                // You only need to call this if you've determined that you need to redraw in
-                // applications which do not always need to. Applications that redraw continuously
-                // can render here instead.
-                self.window.as_ref().unwrap().request_redraw();
-            }
-            _ => (),
-        }
-    }
-}
 
 
 impl std::fmt::Debug for App {
@@ -468,20 +435,4 @@ impl App {
         self.systems.add(system);
         self
     }
-}
-fn ambient_main(){
-
-    let event_loop = EventLoop::new().unwrap();
-
-    // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
-    // dispatched any events. This is ideal for games and similar applications.
-    event_loop.set_control_flow(ControlFlow::Poll);
-
-    // ControlFlow::Wait pauses the event loop if no events are available to process.
-    // This is ideal for non-game applications that only update in response to user
-    // input, and uses significantly less power/CPU time than ControlFlow::Poll.
-    event_loop.set_control_flow(ControlFlow::Wait);
-
-    let mut app = App::default();
-    event_loop.run_app(&mut app);
 }

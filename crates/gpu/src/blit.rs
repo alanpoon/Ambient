@@ -86,13 +86,13 @@ impl Blitter {
                 layout: Some(&layout),
                 vertex: wgpu::VertexState {
                     module: &shader,
-                    entry_point: "vs_main",
+                    entry_point: Some("vs_main"),
                     buffers: &[],
                     compilation_options:PipelineCompilationOptions::default()
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: "fs_main",
+                    entry_point: Some("fs_main"),
                     targets: &[Some(conf.format.clone())],
                     compilation_options:PipelineCompilationOptions::default()
                 }),

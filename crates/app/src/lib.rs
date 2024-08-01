@@ -45,7 +45,7 @@ use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent::KeyboardInput, TouchPhase, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     keyboard::{ModifiersState},
-    window::{CursorGrabMode, Fullscreen, Window},
+    window::{CursorGrabMode, Fullscreen, Window,WindowBuilder},
 };
 
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -489,14 +489,14 @@ impl AppBuilder {
         let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Max);
 
         let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
-        let events_loop = EventLoop::new().unwrap();
+        let event_loop = EventLoop::new().unwrap();
         let size = winit::dpi::Size::Logical(winit::dpi::LogicalSize {
             width: 1200.0,
             height: 800.0,
         });
+        let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-
-        let app_surface = AppSurface::new(window.unwrap()).await;
+        let app_surface = AppSurface::new(window).await;
         let window = app_surface.get_view();
         let  (window_physical_size, window_logical_size, window_scale_factor) = get_window_sizes(window);
 
@@ -612,7 +612,7 @@ impl AppBuilder {
 
             init.call(&mut app).await;
 
-            app.run_blocking();
+            //app.run_blocking();
         });
     }
 
@@ -621,7 +621,8 @@ impl AppBuilder {
         let mut app = self.build().await.unwrap();
         let runtime = app.runtime.clone();
         init(&mut app, runtime);
-        app.run_blocking()
+        ExitStatus::SUCCESS
+        //app.run_blocking()
     }
 
     #[inline]

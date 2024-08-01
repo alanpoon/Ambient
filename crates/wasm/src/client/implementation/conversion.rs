@@ -202,6 +202,7 @@ impl IntoBindgen for ambient_input::MouseButton {
             Self::Right => Self::Item::Right,
             Self::Middle => Self::Item::Middle,
             Self::Other(id) => Self::Item::Other(id),
+            _ => Self::Item::Left,
         }
     }
 }

@@ -417,7 +417,7 @@ impl Shader {
                 layout: Some(&layout),
                 vertex: wgpu::VertexState {
                     module: self.module(),
-                    entry_point: info.vs_main,
+                    entry_point: Some(info.vs_main),
                     buffers: &[],
                     compilation_options:PipelineCompilationOptions::default()
                 },
@@ -429,7 +429,7 @@ impl Shader {
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: self.module(),
-                    entry_point: info.fs_main,
+                    entry_point: Some(info.fs_main),
                     targets: info.targets,
                     compilation_options:PipelineCompilationOptions::default()
                 }),
@@ -465,7 +465,7 @@ impl Shader {
                 label: Some(&self.label),
                 layout: Some(&layout),
                 module: self.module(),
-                entry_point,
+                entry_point:Some(entry_point),
                 compilation_options:PipelineCompilationOptions::default(),
                 cache:None
             });

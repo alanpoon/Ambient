@@ -96,7 +96,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {{
                         },
                     )),
                     module: &shader,
-                    entry_point: "main",
+                    entry_point: Some("main"),
                     compilation_options:PipelineCompilationOptions::default(),
                     cache:None
                 });
