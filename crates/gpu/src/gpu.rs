@@ -71,7 +71,11 @@ impl Gpu {
             // possible using an installer. Nevertheless, we are currently using Vulkan on windows
             // due to `base_instance` being broken on windows.
             // https://docs.rs/wgpu/latest/wgpu/enum.Dx12Compiler.html
-            dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
+            //dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
+            dx12_shader_compiler: wgpu::Dx12Compiler::Dxc{
+                dxil_path:None,
+                dxc_path:None,
+            },
             // dx12_shader_compiler: wgpu::Dx12Compiler::Dxc {
             //     dxil_path: Some("./dxil.dll".into()),
             //     dxc_path: Some("./dxcompiler.dll".into()),
@@ -154,7 +158,7 @@ impl Gpu {
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
-                features: features,
+                features: adapter.features(),
                 limits:adapter.limits(),
             },
             None,
