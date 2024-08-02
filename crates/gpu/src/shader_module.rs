@@ -189,6 +189,7 @@ impl<'a> SyncAssetKey<Arc<wgpu::BindGroupLayout>> for BindGroupDesc<'a> {
         let gpu = GpuKey.get(&assets);
 
         let layout = gpu
+            .lock().unwrap()
             .device
             .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some(&*self.label),
@@ -373,6 +374,7 @@ impl Shader {
         std::fs::create_dir_all(dir_str).unwrap();
         std::fs::write(path, source.as_bytes()).unwrap();
         let module = gpu
+            .lock().unwrap()
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some(&label),

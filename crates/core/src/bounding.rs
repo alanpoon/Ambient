@@ -22,7 +22,7 @@ use ambient_gpu_ecs::gpu_components;
 use ambient_gpu_ecs::{
     gpu_world, ArchChangeDetection, ComponentToGpuSystem, GpuComponentFormat, GpuWorldSyncEvent,
 };
-
+use ambient_gpu::gpu_trait::GpuTrait;
 components!("rendering", {
     @[Debuggable, Networked, Store]
     visibility_from: EntityId,
@@ -182,7 +182,7 @@ impl System<GpuWorldSyncEvent> for VisibilityFromToGpuSystem {
                         })
                         .collect_vec();
 
-                    gpu.queue
+                    gpu.queue()
                         .write_buffer(gpu_buff, offset, bytemuck::cast_slice(&data));
                 }
             }

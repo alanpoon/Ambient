@@ -19,7 +19,7 @@ pub struct FillerKey {
 impl SyncAssetKey<Arc<Filler>> for FillerKey {
     fn load(&self, assets: AssetCache) -> Arc<Filler> {
         let gpu = GpuKey.get(&assets);
-        Arc::new(Filler::new(&gpu, self.format))
+        Arc::new(Filler::new(&gpu.clone().lock().unwrap(), self.format))
     }
 }
 

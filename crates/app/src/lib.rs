@@ -51,7 +51,7 @@ use winit::{
 use winit::keyboard::{KeyCode, PhysicalKey};
 use app_surface::AppSurface;
 pub mod app;
-use crate::app::App;
+pub use crate::app::App;
 
 static mut LOADED:bool = false;
 mod renderers;
@@ -135,7 +135,7 @@ pub fn world_instance_systems(full: bool) -> SystemGroup {
 
 pub struct AppResources {
     pub assets: AssetCache,
-    pub gpu: Arc<Gpu>,
+    pub gpu: Arc<std::sync::Mutex<Gpu>>,
     pub runtime: RuntimeHandle,
     pub ctl_tx: flume::Sender<WindowCtl>,
     window_physical_size: UVec2,
@@ -174,7 +174,7 @@ pub fn world_instance_resources(resources: AppResources) -> Entity {
         //.with(ambient_core::window::window_dpi(), 1)
         .with(
             gpu_world(),
-            GpuWorld::new_arced(&resources.gpu, resources.assets),
+            GpuWorld::new_arced(&resources.gpu.lock().unwrap(), resources.assets),
         )
         .with_merge(ambient_core::time_resources_start(Duration::ZERO))
         .with_merge(ambient_input::resources())
@@ -339,7 +339,7 @@ impl AppBuilder {
     }
 
     //pub async fn build(self,window:Option<Arc<Window>>) -> anyhow::Result<App> {
-    pub async fn build(self) -> anyhow::Result<App> {
+    pub async fn build(self,window:Arc<Window>) -> anyhow::Result<App> {
         crate::init_all_components();
 
         let runtime: RuntimeHandle = RuntimeHandle::current();
@@ -489,18 +489,18 @@ impl AppBuilder {
         let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Max);
 
         let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
-        let event_loop = EventLoop::new().unwrap();
+        //let event_loop = EventLoop::new().unwrap();
         let size = winit::dpi::Size::Logical(winit::dpi::LogicalSize {
             width: 1200.0,
             height: 800.0,
         });
-        let window = WindowBuilder::new().build(&event_loop).unwrap();
+        //let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-        let app_surface = AppSurface::new(window).await;
-        let window = app_surface.get_view();
-        let  (window_physical_size, window_logical_size, window_scale_factor) = get_window_sizes(window);
+        //let app_surface = AppSurface::new(window).await;
+        // let window = app_surface.get_view();
+        let  (window_physical_size, window_logical_size, window_scale_factor) = get_window_sizes(&window);
 
-        let gpu = Arc::new(Gpu::new(Some(app_surface.sdq),app_surface.view).await.unwrap());
+        let gpu = Arc::new(std::sync::Mutex::new(Gpu::new(Some(window)).await.unwrap()));
         //let gpu = Arc::new(Gpu::with_config(window.as_deref(), true, &settings.render).await?);
         tracing::info!("settings {:?}",settings);
 
@@ -549,7 +549,7 @@ impl AppBuilder {
             } else {
                 tracing::debug!("Setting up Main renderer");
                 let renderer =
-                    MainRenderer::new(&gpu, &mut world, self.ui_renderer, self.main_renderer);
+                    MainRenderer::new(&gpu.lock().unwrap(), &mut world, self.ui_renderer, self.main_renderer);
                 tracing::debug!("Created main renderer");
                 let renderer = Arc::new(Mutex::new(renderer));
                 world.add_resource(main_renderer(), renderer);
@@ -604,11 +604,11 @@ impl AppBuilder {
 
     // Runs the app by blocking the main thread
     #[cfg(not(target_os = "unknown"))]
-    pub fn block_on(self, init: impl for<'x> AsyncInit<'x>) {
+    pub fn block_on(self, init: impl for<'x> AsyncInit<'x>,window:Arc<Window>) {
         let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
 
         rt.block_on(async move {
-            let mut app = self.build().await.unwrap();
+            let mut app = self.build(window).await.unwrap();
 
             init.call(&mut app).await;
 
@@ -617,8 +617,8 @@ impl AppBuilder {
     }
 
     // Finalizes the app and enters the main loop
-    pub async fn run(self, init: impl FnOnce(&mut App, RuntimeHandle)) -> ExitStatus {
-        let mut app = self.build().await.unwrap();
+    pub async fn run(self, init: impl FnOnce(&mut App, RuntimeHandle),window:Arc<Window>) -> ExitStatus {
+        let mut app = self.build(window).await.unwrap();
         let runtime = app.runtime.clone();
         init(&mut app, runtime);
         ExitStatus::SUCCESS
@@ -627,7 +627,8 @@ impl AppBuilder {
 
     #[inline]
     pub async fn run_world(self, init: impl FnOnce(&mut World)) -> ExitStatus {
-        self.run(|app, _| init(&mut app.world)).await
+        //self.run(|app, _| init(&mut app.world)).await
+        ExitStatus::SUCCESS
     }
 }
 /// Creates a 2-dimensional vector.
@@ -960,7 +961,7 @@ impl System for MeshBufferUpdate {
         let gpu = world.resource(gpu()).clone();
         let mesh_buffer = MeshBufferKey.get(&assets);
         let mut mesh_buffer = mesh_buffer.lock();
-        mesh_buffer.update(&gpu);
+        mesh_buffer.update(&gpu.lock().unwrap());
     }
 }
 

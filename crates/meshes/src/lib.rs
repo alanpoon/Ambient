@@ -24,7 +24,7 @@ pub struct QuadMeshKey;
 impl SyncAssetKey<Arc<GpuMesh>> for QuadMeshKey {
     fn load(&self, assets: AssetCache) -> Arc<GpuMesh> {
         let gpu = GpuKey.get(&assets);
-        GpuMesh::from_mesh(&gpu, &assets, &Mesh::from(QuadMesh::default()))
+        GpuMesh::from_mesh(&gpu.clone().lock().unwrap(), &assets, &Mesh::from(QuadMesh::default()))
     }
 }
 /// Same as [QuadMeshKey], but unit-sized (e.g. length alongside axes is 1.0 at most)
@@ -34,7 +34,7 @@ impl SyncAssetKey<Arc<GpuMesh>> for UnitQuadMeshKey {
     fn load(&self, assets: AssetCache) -> Arc<GpuMesh> {
         let gpu = GpuKey.get(&assets);
         GpuMesh::from_mesh(
-            &gpu,
+            &gpu.clone().lock().unwrap(),
             &assets,
             &Mesh::from(QuadMesh::from_position_size(-Vec2::ONE * 0.5, Vec2::ONE)),
         )
@@ -46,7 +46,7 @@ pub struct CubeMeshKey;
 impl SyncAssetKey<Arc<GpuMesh>> for CubeMeshKey {
     fn load(&self, assets: AssetCache) -> Arc<GpuMesh> {
         let gpu = GpuKey.get(&assets);
-        GpuMesh::from_mesh(&gpu, &assets, &Mesh::from(CubeMesh::default()))
+        GpuMesh::from_mesh(&gpu.clone().lock().unwrap(), &assets, &Mesh::from(CubeMesh::default()))
     }
 }
 /// Same as [CubeMeshKey], but unit-sized (e.g. length alongside axes is 1.0 at most)
@@ -56,7 +56,7 @@ impl SyncAssetKey<Arc<GpuMesh>> for UnitCubeMeshKey {
     fn load(&self, assets: AssetCache) -> Arc<GpuMesh> {
         let gpu = GpuKey.get(&assets);
         GpuMesh::from_mesh(
-            &gpu,
+            &gpu.clone().lock().unwrap(),
             &assets,
             &Mesh::from(CubeMesh {
                 position: -Vec3::ONE * 0.5,
@@ -72,7 +72,7 @@ pub struct SphereMeshKey(pub UVSphereMesh);
 impl SyncAssetKey<Arc<GpuMesh>> for SphereMeshKey {
     fn load(&self, assets: AssetCache) -> Arc<GpuMesh> {
         let gpu = GpuKey.get(&assets);
-        GpuMesh::from_mesh(&gpu, &assets, &Mesh::from(self.0))
+        GpuMesh::from_mesh(&gpu.clone().lock().unwrap(), &assets, &Mesh::from(self.0))
     }
 }
 
@@ -81,7 +81,7 @@ pub struct TorusMeshKey(pub TorusMesh);
 impl SyncAssetKey<Arc<GpuMesh>> for TorusMeshKey {
     fn load(&self, assets: AssetCache) -> Arc<GpuMesh> {
         let gpu = GpuKey.get(&assets);
-        GpuMesh::from_mesh(&gpu, &assets, &Mesh::from(self.0))
+        GpuMesh::from_mesh(&gpu.clone().lock().unwrap(), &assets, &Mesh::from(self.0))
     }
 }
 
@@ -90,7 +90,7 @@ pub struct CapsuleMeshKey(pub CapsuleMesh);
 impl SyncAssetKey<Arc<GpuMesh>> for CapsuleMeshKey {
     fn load(&self, assets: AssetCache) -> Arc<GpuMesh> {
         let gpu = GpuKey.get(&assets);
-        GpuMesh::from_mesh(&gpu, &assets, &Mesh::from(self.0))
+        GpuMesh::from_mesh(&gpu.clone().lock().unwrap(), &assets, &Mesh::from(self.0))
     }
 }
 
@@ -102,7 +102,7 @@ impl SyncAssetKey<Arc<GpuMesh>> for UIRectMeshKey {
         quad.flip_uvs = true;
         let mesh = Mesh::from(quad);
         let gpu = GpuKey.get(&assets);
-        GpuMesh::from_mesh(&gpu, &assets, &mesh)
+        GpuMesh::from_mesh(&gpu.clone().lock().unwrap(), &assets, &mesh)
     }
 }
 
@@ -111,7 +111,7 @@ pub struct GridMeshKey(pub GridMesh);
 impl SyncAssetKey<Arc<GpuMesh>> for GridMeshKey {
     fn load(&self, assets: AssetCache) -> Arc<GpuMesh> {
         let gpu = GpuKey.get(&assets);
-        GpuMesh::from_mesh(&gpu, &assets, &Mesh::from(self.0.clone()))
+        GpuMesh::from_mesh(&gpu.clone().lock().unwrap(), &assets, &Mesh::from(self.0.clone()))
     }
 }
 

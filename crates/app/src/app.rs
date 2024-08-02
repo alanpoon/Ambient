@@ -246,6 +246,7 @@ impl App {
                 for v in self.ctl_rx.try_iter() {
                     tracing::trace!(?v, "window control");
                     let gpu = world.resource(gpu()).clone();
+                    let gpu = gpu.lock().unwrap();
                     match v {
                         WindowCtl::GrabCursor(mode) => {
                             if let Some(window) =gpu.get_view(){
@@ -366,11 +367,13 @@ impl App {
                 }
                 WindowEvent::Resized(size) => {
                     let gpu = world.resource(gpu()).clone();
-                    gpu.resize(*size);
 
-                    let size = uvec2(size.width, size.height);
+
+                    //let size = uvec2(size.width, size.height);
                     let window = gpu.get_view().unwrap();
                     let scale_factor = window.scale_factor();
+                    gpu.resize(*size);
+                    let size = uvec2(size.width, size.height);
                     let logical_size = (size.as_dvec2() / scale_factor).as_uvec2();
                     tracing::info!("logical size {:?}",logical_size);
                     world

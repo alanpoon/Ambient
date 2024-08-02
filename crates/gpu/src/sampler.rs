@@ -37,7 +37,7 @@ impl SamplerKey {
 impl SyncAssetKey<Arc<wgpu::Sampler>> for SamplerKey {
     fn load(&self, assets: AssetCache) -> Arc<wgpu::Sampler> {
         let gpu = GpuKey.get(&assets);
-        Arc::new(gpu.device.create_sampler(&wgpu::SamplerDescriptor {
+        Arc::new(gpu.clone().lock().unwrap().device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: self.address_mode_u,
             address_mode_v: self.address_mode_v,
             address_mode_w: self.address_mode_w,

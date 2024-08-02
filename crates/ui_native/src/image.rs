@@ -40,7 +40,7 @@ impl ElementComponent for Image {
         let mat = use_memo_with(hooks, texture_id, move |_, _| {
             texture.map(|texture| {
                 SharedMaterial::new(PbrMaterial::new(
-                    &gpu,
+                    &gpu.lock().unwrap(),
                     &assets,
                     PbrMaterialConfig {
                         source: "Image".to_string(),

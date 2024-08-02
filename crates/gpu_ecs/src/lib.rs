@@ -55,7 +55,7 @@ impl SyncAssetKey<Arc<BindGroupLayout>> for GpuWorldBindingGroupLayoutKey {
         let gpu = GpuKey.get(&assets);
 
         Arc::new(
-            gpu.device
+            gpu.clone().lock().unwrap().device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("GpuWorld"),
                     entries: &config.layout_entries(self.read_only).collect_vec(),

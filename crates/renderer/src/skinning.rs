@@ -51,7 +51,7 @@ pub struct SkinsBufferKey;
 impl SyncAssetKey<Arc<Mutex<SkinsBuffer>>> for SkinsBufferKey {
     fn load(&self, assets: AssetCache) -> Arc<Mutex<SkinsBuffer>> {
         let gpu = GpuKey.get(&assets);
-        Arc::new(Mutex::new(SkinsBuffer::new(&gpu)))
+        Arc::new(Mutex::new(SkinsBuffer::new(&gpu.clone().lock().unwrap())))
     }
 }
 
@@ -113,7 +113,7 @@ pub fn skinning_systems() -> SystemGroup {
                                 .unwrap_or(&glam::Mat4::IDENTITY)
                     })
                     .collect_vec();
-                skins.update(gpu, skin, &joint_matrices);
+                skins.update(&gpu.lock().unwrap(), skin, &joint_matrices);
                 commands.set(id, self::joint_matrices(), joint_matrices);
             }
             commands.apply(world).unwrap();

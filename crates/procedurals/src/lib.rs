@@ -41,7 +41,7 @@ pub fn client_systems() -> SystemGroup {
                         let storage = world.resource(procedural_storage());
                         let mesh = storage.meshes.get(mesh_handle);
                         let mesh_aabb = mesh.aabb();
-                        let gpu_mesh = GpuMesh::from_mesh(&gpu, &assets, mesh);
+                        let gpu_mesh = GpuMesh::from_mesh(&gpu.lock().unwrap(), &assets, mesh);
                         (gpu_mesh, mesh_aabb)
                     };
                     world
@@ -71,7 +71,7 @@ pub fn client_systems() -> SystemGroup {
                 for (id, material_handle) in query.collect_cloned(world, query_state) {
                     let storage = world.resource(procedural_storage());
                     let material = storage.materials.get(material_handle).clone();
-                    let material = PbrMaterial::new(&gpu, &assets, material);
+                    let material = PbrMaterial::new(&gpu.lock().unwrap(), &assets, material);
                     let material = SharedMaterial::new(material);
                     world
                         .add_components(

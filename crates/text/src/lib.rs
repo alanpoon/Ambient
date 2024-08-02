@@ -10,6 +10,7 @@ use ambient_ecs::{
     SystemGroup,
 };
 use ambient_gpu::{mesh_buffer::GpuMesh, texture::Texture};
+use ambient_gpu::gpu_trait::GpuTrait;
 use ambient_layout::{height, max_height, max_width, min_height, min_width, width};
 use ambient_native_std::{
     asset_cache::{AssetCache, AsyncAssetKey, AsyncAssetKeyExt},
@@ -213,7 +214,7 @@ pub fn systems(use_gpu: bool) -> SystemGroup {
 
                     for (id, _) in q.collect_cloned(world, qs) {
                         let texture = Arc::new(Texture::new(
-                            &gpu,
+                            &gpu.lock().unwrap(),
                             &wgpu::TextureDescriptor {
                                 size: wgpu::Extent3d {
                                     width: 256,
@@ -241,7 +242,7 @@ pub fn systems(use_gpu: bool) -> SystemGroup {
                                     .with(
                                         material(),
                                         SharedMaterial::new(TextMaterial::new(
-                                            &gpu,
+                                            &gpu.lock().unwrap(),
                                             &assets,
                                             texture_view,
                                         )),
@@ -362,7 +363,7 @@ pub fn systems(use_gpu: bool) -> SystemGroup {
                                     }
                                     let gpu = world.resource(gpu());
 
-                                    gpu.queue.write_texture(
+                                    gpu.queue().write_texture(
                                         wgpu::ImageCopyTexture {
                                             texture: &world
                                                 .get_ref(id, text_texture())
@@ -411,7 +412,7 @@ pub fn systems(use_gpu: bool) -> SystemGroup {
                                 if use_gpu && !vertices.is_empty() {
                                     let cpu_mesh = mesh_from_glyph_vertices(vertices);
                                     let gpu = world.resource(gpu());
-                                    data.set(mesh(), GpuMesh::from_mesh(gpu, &assets, &cpu_mesh));
+                                    data.set(mesh(), GpuMesh::from_mesh(&gpu.lock().unwrap(), &assets, &cpu_mesh));
                                 }
                                 world.add_components(id, data).unwrap();
                                 break;
@@ -430,7 +431,7 @@ pub fn systems(use_gpu: bool) -> SystemGroup {
                                 };
                                 let gpu = world.resource(gpu()).clone();
                                 let texture = Arc::new(Texture::new(
-                                    &gpu,
+                                    &gpu.lock().unwrap(),
                                     &wgpu::TextureDescriptor {
                                         size,
                                         mip_level_count: 1,
@@ -454,7 +455,7 @@ pub fn systems(use_gpu: bool) -> SystemGroup {
                                             .with(
                                                 material(),
                                                 SharedMaterial::new(TextMaterial::new(
-                                                    &gpu,
+                                                    &gpu.lock().unwrap(),
                                                     &assets,
                                                     view.clone(),
                                                 )),

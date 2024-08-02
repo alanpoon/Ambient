@@ -174,7 +174,7 @@ async fn internal_spawn_models_from_defs(
                     tracing::debug!("Spawning model: {:?} for {ids:?}", model.name());
                     let gpu = world.resource(gpu()).clone();
                     model.batch_spawn(
-                        &gpu,
+                        &gpu.lock().unwrap(),
                         world,
                         &ModelSpawnOpts {
                             root: ModelSpawnRoot::AttachTo(ids),

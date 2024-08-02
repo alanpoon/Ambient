@@ -494,7 +494,7 @@ impl AsyncAssetKey<Result<Arc<PbrMaterial>, AssetError>> for PbrMaterialDesc {
             .unwrap_or_default();
         let gpu = GpuKey.get(&assets);
         Ok(Arc::new(PbrMaterial::new(
-            &gpu,
+            &gpu.clone().lock().unwrap(),
             &assets,
             PbrMaterialConfig {
                 source: self.source.unwrap_or_default(),

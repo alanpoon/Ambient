@@ -69,7 +69,7 @@ pub fn systems() -> SystemGroup {
                     for (id, _) in q.collect_cloned(world, qs) {
                         let clouds = CloudState::new(100.0);
 
-                        let material = CloudMaterial::new(&gpu, &assets, &clouds);
+                        let material = CloudMaterial::new(&gpu.lock().unwrap(), &assets, &clouds);
 
                         let data = Entity::new()
                             .with(

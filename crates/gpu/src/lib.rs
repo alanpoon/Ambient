@@ -12,7 +12,7 @@ pub mod texture;
 pub mod texture_loaders;
 pub mod typed_buffer;
 pub mod wgsl_utils;
-
+pub mod gpu_trait;
 pub fn texture_format_to_wgsl_storage_format(format: wgpu::TextureFormat) -> &'static str {
     match format {
         wgpu::TextureFormat::R32Float => "r32float",

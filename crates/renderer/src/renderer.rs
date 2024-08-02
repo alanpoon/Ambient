@@ -26,6 +26,7 @@ use glam::uvec2;
 use std::sync::Arc;
 use tracing::debug_span;
 use wgpu::{BindGroupLayout, BindGroupLayoutEntry, TextureView};
+use ambient_gpu::gpu_trait::GpuTrait;
 
 pub const GLOBALS_BIND_GROUP: &str = "GLOBALS_BIND_GROUP";
 pub const MATERIAL_BIND_GROUP: &str = "MATERIAL_BIND_GROUP";
@@ -75,7 +76,7 @@ impl SyncAssetKey<RendererResources> for RendererResourcesKey {
             mesh_meta_layout,
             globals_layout,
             primitives_layout: primitives,
-            collect: Arc::new(RendererCollect::new(&gpu, &assets)),
+            collect: Arc::new(RendererCollect::new(&gpu.clone().lock().unwrap(), &assets)),
         }
     }
 }
@@ -709,7 +710,7 @@ fn create_mesh_meta_bind_group(
 ) -> wgpu::BindGroup {
     let gpu = world.resource(gpu()).clone();
 
-    gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+    gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
         layout,
         entries: &[wgpu::BindGroupEntry {
             binding: 0,

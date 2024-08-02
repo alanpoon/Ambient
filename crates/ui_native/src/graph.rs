@@ -263,7 +263,7 @@ impl ElementComponent for Graph {
         .build()
         .expect("Invalid graph mesh");
 
-        let mesh = mesh_buffer.insert(gpu, &mesh);
+        let mesh = mesh_buffer.insert(&gpu.lock().unwrap(), &mesh);
 
         let origin = to_screen_space(Vec2::ZERO) * size;
         let guides = vec![
@@ -300,7 +300,7 @@ impl ElementComponent for Graph {
             .init(renderer_shader(), cb(get_flat_shader_unlit))
             .init(
                 material(),
-                SharedMaterial::new(FlatMaterial::new(gpu, assets, style.color, None)),
+                SharedMaterial::new(FlatMaterial::new(&gpu.lock().unwrap(), assets, style.color, None)),
             )
             .init(color(), Vec4::ONE)
             .init(ui_scene(), ())

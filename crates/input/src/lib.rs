@@ -7,13 +7,14 @@ use ambient_ecs::{
 };
 use glam::{vec2, Vec2};
 use serde::{Deserialize, Serialize};
-use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
+use winit::keyboard::{ModifiersState, PhysicalKey};
 use winit::event::Modifiers;
 use winit::event::{ TouchPhase};
 pub use winit::event::{
     DeviceEvent, ElementState, Event, MouseButton, MouseScrollDelta,
-    WindowEvent,
+    WindowEvent
 };
+pub use winit::keyboard::KeyCode;
 use winit::event::WindowEvent::KeyboardInput;
 pub use ambient_ecs::generated::app::components::{
     cursor_position,last_touch_position

@@ -19,7 +19,7 @@ pub struct BlitterKey {
 impl SyncAssetKey<Arc<Blitter>> for BlitterKey {
     fn load(&self, assets: AssetCache) -> Arc<Blitter> {
         let gpu = GpuKey.get(&assets);
-        Arc::new(Blitter::new(&gpu, &assets, self))
+        Arc::new(Blitter::new(&gpu.clone().lock().unwrap(), &assets, self))
     }
 }
 

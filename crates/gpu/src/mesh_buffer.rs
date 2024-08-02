@@ -70,7 +70,7 @@ pub struct MeshBufferKey;
 impl SyncAssetKey<Arc<Mutex<MeshBuffer>>> for MeshBufferKey {
     fn load(&self, assets: AssetCache) -> Arc<Mutex<MeshBuffer>> {
         let gpu = GpuKey.get(&assets);
-        Arc::new(Mutex::new(MeshBuffer::new(&gpu)))
+        Arc::new(Mutex::new(MeshBuffer::new(&gpu.clone().lock().unwrap())))
     }
 }
 
@@ -96,7 +96,7 @@ impl AsyncAssetKey<AssetResult<Arc<GpuMesh>>> for GpuMeshFromUrl {
         let mesh = MeshFromUrl::new(self.url, self.cache_on_disk)
             .get(&assets)
             .await?;
-        Ok(GpuMesh::from_mesh(&gpu, &assets, &mesh))
+        Ok(GpuMesh::from_mesh(&gpu.clone().lock().unwrap(), &assets, &mesh))
     }
 }
 

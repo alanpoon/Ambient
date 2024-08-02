@@ -107,7 +107,7 @@ impl SyncAssetKey<SharedMaterial> for FlatMaterialKey {
     fn load(&self, assets: AssetCache) -> SharedMaterial {
         let gpu = GpuKey.get(&assets);
         SharedMaterial::new(FlatMaterial::new(
-            &gpu,
+            &gpu.clone().lock().unwrap(),
             &assets,
             self.color,
             self.transparent,

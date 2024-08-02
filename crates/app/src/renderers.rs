@@ -20,7 +20,7 @@ use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
 };
-
+use ambient_gpu::gpu_trait::GpuTrait;
 components!("app-renderers", {
     ui_renderer: Arc<Mutex<UiRenderer>>,
     main_renderer: Arc<Mutex<MainRenderer>>,
@@ -32,6 +32,7 @@ pub fn systems() -> SystemGroup<Event<()>> {
         vec![
             query(ui_renderer()).to_system(|q, world, qs, event| {
                 let gpu = world.resource(gpu()).clone();
+                let gpu = gpu.lock().unwrap();
                 for (_, ui_render) in q.collect_cloned(world, qs) {
                     let mut ui_render = ui_render.lock();
                     match &event {
@@ -58,6 +59,7 @@ pub fn systems() -> SystemGroup<Event<()>> {
             }),
             query(main_renderer()).to_system(|q, world, qs, event| {
                 let gpu = world.resource(gpu()).clone();
+                let gpu = gpu.lock().unwrap();
                 for (_, main_renderer) in q.collect_cloned(world, qs) {
                     let mut main_renderer = main_renderer.lock();
 
@@ -205,6 +207,7 @@ impl System for MainRenderer {
     fn run(&mut self, world: &mut World, _: &FrameEvent) {
         profiling::scope!("Renderers.run");
         let gpu = world.resource(gpu()).clone();
+        let gpu = gpu.lock().unwrap();
         let mut encoder = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -313,7 +316,7 @@ impl UiRenderer {
         let assets = world.resource(asset_cache());
         let gpu = world.resource(gpu()).clone();
         let size = *world.resource(window_physical_size());
-
+        let gpu = gpu.lock().unwrap();
         let depth_buffer = Arc::new(Self::create_depth_buffer(
             &gpu,
             &PhysicalSize::new(size.x, size.y),

@@ -4,7 +4,7 @@ use ambient_sys::{
 };
 use chrono::{DateTime, Utc};
 use hierarchy::despawn_recursive;
-use std::{sync::Arc, time::Duration};
+use std::{sync::{Mutex,Arc}, time::Duration};
 
 use ambient_ecs::{
     components, generated::hierarchy::components::parent, query, Debuggable, Description,
@@ -40,7 +40,7 @@ components!("app", {
     @[Resource]
     runtime: RuntimeHandle,
     @[Resource]
-    gpu: Arc<Gpu>,
+    gpu: Arc<Mutex<Gpu>>,
     @[Debuggable]
     mesh: Arc<GpuMesh>,
 

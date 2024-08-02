@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Mutex,Arc};
 
 use ambient_native_std::asset_cache::SyncAssetKey;
 use ambient_settings::RenderSettings;
@@ -8,38 +8,113 @@ use glam::{uvec2, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
 use wgpu::{InstanceDescriptor, InstanceFlags, Limits, PresentMode, TextureFormat};
 use app_surface::SurfaceDeviceQueue;
 use winit::window::Window;
+use std::time::Instant;
+use std::fmt;
 // #[cfg(debug_assertions)]
 pub const DEFAULT_SAMPLE_COUNT: u32 = 1;
 #[derive(Debug)]
 pub struct GpuKey;
-impl SyncAssetKey<Arc<Gpu>> for GpuKey {}
-
-
+impl SyncAssetKey<Arc<Mutex<Gpu>>> for GpuKey {}
+pub struct SurfaceState {
+    pub surface: wgpu::Surface<'static>,
+    pub view_format: wgpu::TextureFormat,
+    pub alpha_mode: wgpu::CompositeAlphaMode,
+}
+impl fmt::Debug for SurfaceState{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SurfaceState")
+         .finish()
+    }
+}
+pub struct Renderer {
+    pub render_pipeline: wgpu::RenderPipeline,
+}
+impl fmt::Debug for Renderer{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Renderer")
+         .finish()
+    }
+}
 #[derive(Debug)]
 pub struct Gpu {
+    pub instance: wgpu::Instance,
     pub surface: Option<wgpu::Surface<'static>>,
+    pub surface_state: Option<SurfaceState>,
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
+    pub renderer: Option<Renderer>,
     pub swapchain_format: Option<TextureFormat>,
     pub swapchain_mode: Option<PresentMode>,
     pub adapter: wgpu::Adapter,
     /// If this is true, we don't need to use blocking device.polls, since they are assumed to be polled elsewhere
     pub will_be_polled: bool,
-    pub view:Option<Arc<Window>>,
+    pub window:Option<Arc<Window>>,
+    pub last_time: Instant,
 }
-impl Gpu{
-    pub async fn new(sdq: Option<SurfaceDeviceQueue>,window:Option<Arc<Window>>)->anyhow::Result<Self>{
-        if let Some(sdq) = sdq{
 
+#[derive(Default,Debug,Clone,PartialEq)]
+pub enum GpuStateEnum{
+    #[default]
+    Idle,
+    WillResumed,
+    Resumed
+}
+#[derive(Default,Debug)]
+pub struct GpuState(pub GpuStateEnum);
+impl Gpu{
+    pub async fn new(window:Option<Arc<Window>>)->anyhow::Result<Self>{
+        if let Some(window) = window{
+            let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends: if cfg!(target_os = "ios") {
+                    wgpu::Backends::METAL
+                } else if cfg!(target_os = "windows") {
+                    wgpu::Backends::VULKAN
+                } else {
+                    wgpu::Backends::DX12
+                },
+                // dx12_shader_compiler: wgpu::Dx12Compiler::Dxc {
+                //     dxc_path: None,
+                //     dxil_path: None,
+                // },
+                dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
+                flags:InstanceFlags::all(),
+                gles_minor_version:wgpu::Gles3MinorVersion::Automatic
+            });
+            let adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::default(),
+                    force_fallback_adapter: false,
+                    compatible_surface: None,
+                })
+                .await
+                .expect("Failed to find an appropriate adapter");
+
+            // Create the logical device and command queue
+            let (device, queue) = adapter
+                .request_device(
+                    &wgpu::DeviceDescriptor {
+                        label: None,
+                        required_features: adapter.features(),
+                        required_limits:adapter.limits(),
+                        memory_hints:wgpu::MemoryHints::Performance
+                    },
+                    None,
+                )
+                .await
+                .expect("Failed to create device");
             Ok(Gpu{
-                surface:Some(sdq.surface),
-                device:sdq.device,
+                instance:instance,
+                surface:None,
+                surface_state:None,
+                renderer:None,
+                device:Arc::new(device),
                 swapchain_format:None,
                 swapchain_mode: None,
-                adapter:sdq.adapter,
-                queue:sdq.queue,
+                adapter:adapter,
+                queue:Arc::new(queue),
                 will_be_polled:true,
-                view:window
+                window:Some(window),
+                last_time:Instant::now()
             })
         }else{
             let backends = if cfg!(target_os = "windows") {
@@ -99,25 +174,29 @@ impl Gpu{
             .await
             .context("Failed to create device")?;
             Ok(Gpu{
+                instance,
                 surface:None,
+                surface_state:None,
+                renderer:None,
                 device:Arc::new(device),
                 swapchain_format:None,
                 swapchain_mode: None,
                 adapter:adapter,
                 queue:Arc::new(queue),
                 will_be_polled:true,
-                view:window
+                last_time:Instant::now(),
+                window:window
             })
         }
 
     }
-    pub fn resize(&self, size: winit::dpi::PhysicalSize<u32>) {
-        if let Some(surface) = &self.surface {
-            if size.width > 0 && size.height > 0 {
-                surface.configure(&self.device, &self.sc_desc(uvec2(size.width, size.height)));
-            }
-        }
-    }
+    // pub fn resize(&self, size: winit::dpi::PhysicalSize<u32>) {
+    //     if let Some(surface) = &self.surface {
+    //         if size.width > 0 && size.height > 0 {
+    //             surface.configure(&self.device, &self.sc_desc(uvec2(size.width, size.height)));
+    //         }
+    //     }
+    // }
     pub fn swapchain_format(&self) -> TextureFormat {
         self.swapchain_format
             .unwrap_or(TextureFormat::Rgba8UnormSrgb)
@@ -145,8 +224,9 @@ impl Gpu{
         }
     }
     pub fn get_view(&self) -> Option<&Arc<Window>> {
-        return self.view.as_ref();
+        return self.window.as_ref();
     }
+
 }
 pub trait WgslType: Zeroable + Pod + 'static {
     fn wgsl_type() -> &'static str;

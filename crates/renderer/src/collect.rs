@@ -363,7 +363,7 @@ impl RendererCollect {
 
             _post_submit.push(Box::new(move || {
                 runtime.spawn(async move {
-                    if let Ok(res) = staging.read(&post_submit_gpu, ..).await {
+                    if let Ok(res) = staging.read(&post_submit_gpu.clone().lock().unwrap(), ..).await {
                         {
                             let mut count_state = counts_res.lock();
                             assert_ne!(count_state.last_tick, tick);
