@@ -821,48 +821,37 @@ impl AppWrapper{
                     .map(|x| x.scale_factor() as f32)
                     .unwrap_or(1.) as f64;
                     tracing::info!("scale_factor {:?}",scale_factor);
-                    std::thread::spawn( move||{
+                    let app =  rt.block_on(async move {
+                         AppBuilder::new()
+                            .ui_renderer(true)
+                            .with_asset_cache(assets)
+                            .headless(headless)
+                            .update_title_with_fps_stats(false)
+                            .build(window).await.unwrap()
+                    });
                         // thread code
-                        rt.block_on(async move {
-                            let mut app = AppBuilder::new()
-                                .ui_renderer(true)
-                                .with_asset_cache(assets)
-                                .headless(headless)
-                                .update_title_with_fps_stats(false)
-                                .build(window).await.unwrap();
 
-                            *app.world.resource_mut(window_scale_factor()) = scale_factor;
-
+                    *app.world.resource_mut(window_scale_factor()) = scale_factor;
+                    *app_.lock() = Some(app);
+                    unsafe{
+                        LOADED = true;
+                    }
+                    //use tokio::time::{sleep, Duration};
+                    let quit = unsafe{
+                        QUIT
+                    };
+                    std::thread::spawn(||{
+                        rt.block_on(async move{
                             i_c.call(&mut app,android_app_c).await;
-                            *app_.lock() = Some(app);
-                            unsafe{
-                                LOADED = true;
-                            }
-                            //use tokio::time::{sleep, Duration};
-                            let quit = unsafe{
-                                QUIT
-                            };
-
-                            // while !quit{
-                            //   sleep(Duration::new(5,0)).await;
-                            // }
-                            use std::time::{Duration};
+                               use std::time::{Duration};
                             use std::thread::sleep;
                             loop{
                                 sleep(Duration::new(5,0));
 
                             }
                         });
-                        // unsafe{
-                        //             LOADED = true;
-                        //         }
-                        // use std::time::{Duration};
-                        // use std::thread::sleep;
-                        // loop{
-                        //     sleep(Duration::new(5,0));
-
-                        // }
                     });
+
                     self.once = true;
                 }
                 else{
