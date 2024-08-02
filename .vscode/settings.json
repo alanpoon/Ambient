@@ -7,6 +7,6 @@
   },
   "rust-analyzer.showUnlinkedFileNotification": false,
   "rust-analyzer.checkOnSave": true,
-  "rust-analyzer.cargo.target": "aarch64-linux-android"
+  "rust-analyzer.cargo.target": "aarch64-apple-ios"
 
 }

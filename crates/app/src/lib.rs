@@ -716,19 +716,36 @@ impl AppWrapper{
                     // PhysicsKey.get(&assets); // Load physics
 
                     box_c();
-                    std::thread::spawn( move||{
-                        // thread code
-                        rt.block_on(async move {
-                            let mut app = AppBuilder::simple().build(window).await.unwrap();
+                    let app =  rt.block_on(async move {
+                        AppBuilder::new()
+                           .ui_renderer(true)
+                           .with_asset_cache(assets)
+                           .headless(headless)
+                           .update_title_with_fps_stats(false)
+                           .build(window).await.unwrap()
+                   });
+                       // thread code
 
-                            i_c.call(&mut app).await;
-                            *app_.lock() = Some(app);
-                            use tokio::time::{sleep, Duration};
-                            while !quit{
-                                sleep(Duration::new(20,0)).await;
-                            }
-                        });
-                    });
+                   *app.world.resource_mut(window_scale_factor()) = scale_factor;
+                   *app_.lock() = Some(app);
+                   unsafe{
+                       LOADED = true;
+                   }
+                   //use tokio::time::{sleep, Duration};
+                   let quit = unsafe{
+                       QUIT
+                   };
+                   std::thread::spawn(||{
+                       rt.block_on(async move{
+                           i_c.call(&mut app).await;
+                              use std::time::{Duration};
+                           use std::thread::sleep;
+                           loop{
+                               sleep(Duration::new(5,0));
+
+                           }
+                       });
+                   });
                     self.once = true;
                 }else{
                     let app_ = self.app.clone();
