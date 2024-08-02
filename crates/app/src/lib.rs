@@ -694,6 +694,8 @@ impl AppWrapper{
     }
     #[cfg(not(target_os="android"))]
     pub fn run_blocking(mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static,box_c:Box<dyn Fn()>) {
+        use std::ops::DerefMut;
+
         use tracing::event;
 
         if let Some(event_loop) = self.event_loop.take() {
@@ -716,7 +718,11 @@ impl AppWrapper{
                     // PhysicsKey.get(&assets); // Load physics
 
                     box_c();
-                    let app =  rt.block_on(async move {
+                    let in_size: winit::dpi::PhysicalSize<u32> = self.window.clone().unwrap().inner_size();
+                    let width = in_size.width;
+                    let height = in_size.height;
+                    let headless = Some(uvec2(width, height));
+                    let mut app =  rt.block_on(async move {
                         AppBuilder::new()
                            .ui_renderer(true)
                            .with_asset_cache(assets)
@@ -725,7 +731,11 @@ impl AppWrapper{
                            .build(window).await.unwrap()
                    });
                        // thread code
-
+                    let scale_factor = self
+                       .window
+                       .as_ref()
+                       .map(|x| x.scale_factor() as f32)
+                       .unwrap_or(1.) as f64;
                    *app.world.resource_mut(window_scale_factor()) = scale_factor;
                    *app_.lock() = Some(app);
                    unsafe{
@@ -735,10 +745,13 @@ impl AppWrapper{
                    let quit = unsafe{
                        QUIT
                    };
-                   std::thread::spawn(||{
+                   let mut app_c = app_.clone();
+                   std::thread::spawn(move||{
                        rt.block_on(async move{
-                           i_c.call(&mut app).await;
-                              use std::time::{Duration};
+                          if let Some(app ) =app_c.lock().as_mut(){
+                            i_c.call(app).await;
+                          }
+                           use std::time::{Duration};
                            use std::thread::sleep;
                            loop{
                                sleep(Duration::new(5,0));
