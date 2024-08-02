@@ -159,8 +159,8 @@ impl Gpu {
             },
             None,
         )
-        .await
-        .context("Failed to create device")?;
+        .await.unwrap();
+        //.context("Failed to create device")?;
         tracing::debug!("Device limits:\n{:#?}", device.limits());
 
         let swapchain_format = surface
