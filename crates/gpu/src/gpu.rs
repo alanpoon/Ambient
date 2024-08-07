@@ -7,6 +7,8 @@ use bytemuck::{Pod, Zeroable};
 use glam::{uvec2, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
 use wgpu::{InstanceDescriptor, PresentMode, TextureFormat};
 use winit::window::Window;
+#[cfg(target_os="ios")]
+use core_graphics::{base::CGFloat, geometry::CGRect};
 
 // #[cfg(debug_assertions)]
 pub const DEFAULT_SAMPLE_COUNT: u32 = 1;
@@ -32,6 +34,147 @@ pub struct Gpu {
 impl Gpu {
     pub async fn new(window: Option<&Window>) -> anyhow::Result<Self> {
         Self::with_config(window, false, &RenderSettings::default()).await
+    }
+    #[cfg(target_os="ios")]
+    pub async fn with_view<T>(view: Option<T>, will_be_polled: bool,settings:&RenderSettings) ->anyhow::Result<Self>
+        where T:raw_window_handle::HasRawDisplayHandle + raw_window_handle::HasRawWindowHandle {
+        let backends = if cfg!(target_os = "windows") {
+            wgpu::Backends::VULKAN
+        } else if cfg!(target_os = "android") {
+            wgpu::Backends::VULKAN
+        } else if cfg!(target_os = "macos") {
+            wgpu::Backends::PRIMARY
+        } else if cfg!(target_os = "unknown") {
+            wgpu::Backends::BROWSER_WEBGPU
+        } else if cfg!(target_os = "ios") {
+            wgpu::Backends::METAL
+        } else if cfg!(target_os = "ios-sim") {
+            wgpu::Backends::METAL
+        } else {
+            wgpu::Backends::all()
+        };
+        println!("backends{:?}",backends);
+        let instance = wgpu::Instance::new(InstanceDescriptor {
+            backends,
+            // NOTE: Vulkan is used for windows as a non-zero indirect `first_instance` is not supported, and we have to resort direct rendering
+            // See: <https://github.com/gfx-rs/wgpu/issues/2471>
+            //
+            // TODO: upgrade to Dxc? This requires us to ship additionall dll files, which may be
+            // possible using an installer. Nevertheless, we are currently using Vulkan on windows
+            // due to `base_instance` being broken on windows.
+            // https://docs.rs/wgpu/latest/wgpu/enum.Dx12Compiler.html
+            //dx12_shader_compiler: wgpu::Dx12Compiler::Fxc,
+            dx12_shader_compiler: wgpu::Dx12Compiler::Dxc{
+                dxil_path:None,
+                dxc_path:None,
+            },
+            // dx12_shader_compiler: wgpu::Dx12Compiler::Dxc {
+            //     dxil_path: Some("./dxil.dll".into()),
+            //     dxc_path: Some("./dxcompiler.dll".into()),
+            // },
+        });
+
+        let surface = view
+            .map(|window| unsafe { instance.create_surface(&window) })
+            .transpose()
+            .context("Failed to create surface")?;
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: surface.as_ref(),
+                force_fallback_adapter: false,
+            })
+            .await
+            .context("Failed to find an appopriate adapter")?;
+
+        tracing::info!("Using gpu adapter: {:?}", adapter.get_info());
+
+        tracing::info!("Adapter features:\n{:#?}", adapter.features());
+        let adapter_limits: wgpu::Limits = adapter.limits();
+        tracing::info!("Adapter limits:\n{:#?}", adapter_limits);
+
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "macos")] {
+                // The renderer will dispatch 1 indirect draw command for *each* primitive in the
+                // scene, but the data draw data such as index_count, first_instance, etc lives on
+                // the gpu
+                let features = wgpu::Features::empty();
+            } else if #[cfg(target_os = "android")]{
+                let features = wgpu::Features::empty();
+            } else if #[cfg(target_os = "unknown")] {
+
+                // Same as above, but the *web*gpu target requires a feature flag to be set, or
+                // else indirect commands no-op
+                let features = wgpu::Features::INDIRECT_FIRST_INSTANCE;
+            } else {
+                // TODO: make configurable at runtime
+                // The renderer will use indirect drawing with the draw commands *and* count
+                // fetched from gpu side buffers
+                let features =
+                wgpu::Features::MULTI_DRAW_INDIRECT | wgpu::Features::MULTI_DRAW_INDIRECT_COUNT;
+            }
+        };
+
+        tracing::info!("Using device features: {features:?}");
+
+        let (device, queue) = adapter
+        .request_device(
+            &wgpu::DeviceDescriptor {
+                label: None,
+                features: adapter.features(),
+                limits:adapter.limits(),
+            },
+            None,
+        )
+        .await.unwrap();
+        //.context("Failed to create device")?;
+        tracing::debug!("Device limits:\n{:#?}", device.limits());
+
+        let swapchain_format = surface
+            .as_ref()
+            .map(|surface| surface.get_capabilities(&adapter).formats[0]);
+
+        tracing::debug!("Swapchain format: {swapchain_format:?}");
+
+        let swapchain_mode = if surface.is_some() {
+            if settings.vsync() {
+                // From wgpu docs:
+                // "Chooses FifoRelaxed -> Fifo based on availability."
+                Some(PresentMode::AutoVsync)
+            } else {
+                // From wgpu docs:
+                // "Chooses Immediate -> Mailbox -> Fifo (on web) based on availability."
+                Some(PresentMode::AutoNoVsync)
+            }
+        } else {
+            None
+        };
+
+        tracing::debug!("Swapchain present mode: {swapchain_mode:?}");
+
+        if let (Some(window), Some(surface), Some(mode), Some(format)) =
+            (view, &surface, swapchain_mode, swapchain_format)
+        {
+            let s: CGRect = unsafe { msg_send![window, frame] };
+            let size = (
+                (s.size.width as f32 * scale_factor) as u32,
+                (s.size.height as f32 * scale_factor) as u32,
+            );
+            surface.configure(
+                &device,
+                &Self::create_sc_desc(format, mode, uvec2(size.0, size.1)),
+            );
+        }
+
+        Ok(Self {
+            device,
+            surface,
+            queue,
+            swapchain_format,
+            swapchain_mode,
+            adapter,
+            will_be_polled,
+        })
     }
     pub async fn with_config(
         window: Option<&Window>,
@@ -297,4 +440,22 @@ impl WgslType for UVec4 {
     fn wgsl_type() -> &'static str {
         "vec4<u32>"
     }
+}
+#[cfg(target_os="ios")]
+fn get_scale_factor(obj: *mut Object) -> f32 {
+    let mut _scale_factor: CGFloat = 1.0;
+    #[cfg(target_os = "macos")]
+    unsafe {
+        let window: *mut Object = msg_send![obj, window];
+        if !window.is_null() {
+            _scale_factor = msg_send![window, backingScaleFactor];
+        }
+    };
+
+    #[cfg(target_os = "ios")]
+    {
+        _scale_factor = unsafe { msg_send![obj, contentScaleFactor] };
+    }
+
+    _scale_factor as f32
 }

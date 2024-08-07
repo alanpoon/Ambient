@@ -46,6 +46,11 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{CursorGrabMode, Fullscreen, Window, WindowBuilder},
 };
+#[cfg(target_os="ios")]
+use objc::{runtime::Object, *};
+#[cfg_attr(target_os = "ios", path = "ffi/ios.rs")]
+#[cfg_attr(target_os = "android", path = "ffi/android.rs", allow(non_snake_case))]
+pub mod ffi;
 static mut QUIT:bool = false;
 static mut LOADED:bool = false;
 mod renderers;
@@ -204,6 +209,7 @@ pub struct AppBuilder {
     pub window_size_override: Option<UVec2>,
     #[cfg(target_os = "unknown")]
     pub parent_element: Option<web_sys::HtmlElement>,
+
 }
 
 pub trait AsyncInit<'a> {
@@ -603,6 +609,119 @@ impl AppBuilder {
 
             #[cfg(target_os = "unknown")]
             force_resize_event_rx,
+            #[cfg(target_os = "ios")]
+            view:None
+        })
+    }
+    #[cfg(target_os="ios")]
+    pub async fn build_view<T>(self,view:Option<T>) -> anyhow::Result<App> where T:raw_window_handle:: HasRawWindowHandle + raw_window_handle::HasRawDisplayHandle {
+        crate::init_all_components();
+
+        let runtime: RuntimeHandle = RuntimeHandle::current();
+
+        let assets = self
+            .asset_cache
+            .unwrap_or_else(|| AssetCache::new(runtime.clone()));
+
+        let settings = SettingsKey.get(&assets);
+        let (cursor_lock_tx, cursor_lock_rx) = flume::unbounded::<bool>();
+        let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
+        let gpu = Arc::new(Gpu::with_view(view, true, &settings.render).await?);
+        tracing::info!("settings {:?}",settings);
+
+        tracing::debug!("Inserting runtime");
+        RuntimeKey.insert(&assets, runtime.clone());
+        GpuKey.insert(&assets, gpu.clone());
+        // WindowKey.insert(&assets, window.clone());
+
+        tracing::debug!("Inserting app resources");
+        let (ctl_tx, ctl_rx) = self.ctl.unwrap_or_else(flume::unbounded);
+
+        let (window_physical_size, window_logical_size, window_scale_factor) =
+            if let Some(window) = window.as_ref() {
+                get_window_sizes(window)
+            } else {
+                let headless_size = self.headless.unwrap();
+                (headless_size, headless_size, 1.)
+            };
+        tracing::info!("window_physical_size {:?},window_logical_size {:?}.{:?}",window_physical_size,window_logical_size,window_scale_factor);
+        let app_resources = AppResources {
+            gpu: gpu.clone(),
+            runtime: runtime.clone(),
+            assets,
+            ctl_tx,
+            window_physical_size,
+            window_logical_size,
+            window_scale_factor,
+        };
+
+        let resources = world_instance_resources(app_resources);
+
+        world
+            .add_components(world.resource_entity(), resources)
+            .unwrap();
+        tracing::debug!("Setup renderers");
+        if self.ui_renderer || self.main_renderer {
+            // let _span = info_span!("setup_renderers").entered();
+            if !self.main_renderer {
+                tracing::debug!("Setting up UI renderer");
+                let renderer = Arc::new(Mutex::new(UiRenderer::new(&mut world)));
+                world.add_resource(ui_renderer(), renderer);
+            } else {
+                tracing::debug!("Setting up Main renderer");
+                let renderer =
+                    MainRenderer::new(&gpu, &mut world, self.ui_renderer, self.main_renderer);
+                tracing::debug!("Created main renderer");
+                let renderer = Arc::new(Mutex::new(renderer));
+                world.add_resource(main_renderer(), renderer);
+            }
+        }
+
+        tracing::debug!("Adding window event systems");
+
+        let mut window_event_systems = SystemGroup::new(
+            "window_event_systems",
+            vec![
+                Box::new(assets_camera_systems()),
+                Box::new(ambient_input::event_systems()),
+                Box::new(renderers::systems()),
+            ],
+        );
+        if self.examples_systems {
+            window_event_systems.add(Box::new(ExamplesSystem));
+        }
+
+        Ok(App {
+            window_focused: true,
+            window,
+            runtime,
+            systems: SystemGroup::new(
+                "app",
+                vec![
+                    Box::new(MeshBufferUpdate),
+                    Box::new(world_instance_systems(true)),
+                    ambient_input::cursor_lock_system(cursor_lock_rx),
+                ],
+            ),
+            world,
+            gpu_world_sync_systems: gpu_world_sync_systems(gpu.clone()),
+            window_event_systems,
+            //event_loop,
+
+            fps: FpsCounter::new(),
+            #[cfg(feature = "profile")]
+            _puffin: puffin_server,
+            modifiers: Default::default(),
+            ctl_rx,
+            current_time: Instant::now(),
+            update_title_with_fps_stats: self.update_title_with_fps_stats,
+            #[cfg(target_os = "unknown")]
+            _drop_handles: drop_handles,
+
+            #[cfg(target_os = "unknown")]
+            force_resize_event_rx,
+            #[cfg(target_os = "ios")]
+            view:None
         })
     }
 
@@ -672,6 +791,41 @@ impl AppWrapper{
         AppWrapper{
             app:Arc::new(Mutex::new(None)),
             event_loop:Some(event_loop),
+            window:Some(Arc::new(window)),
+            once:false
+        }
+    }
+    #[cfg(target_os="ios")]
+    pub fn new_with_view(ios_obj: ffi::IOSViewObj,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static,box_c:Box<dyn Fn()>)->AppWrapper{
+        let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+        let runtime = rt.handle();
+        let assets: AssetCache = AssetCache::new(runtime.clone());
+        let _settings = SettingsKey.get(&assets);
+        box_c();
+        let in_size: winit::dpi::PhysicalSize<u32> = self.window.clone().unwrap().inner_size();
+        let width = in_size.width;
+        let height = in_size.height;
+        let headless = Some(uvec2(width, height));
+        let mut app =  rt.block_on(async move {
+            AppBuilder::new()
+               .ui_renderer(true)
+               .with_asset_cache(assets)
+               .headless(headless)
+               .update_title_with_fps_stats(false)
+               .build(window).await.unwrap()
+       });
+           // thread code
+        let scale_factor = self
+           .window
+           .as_ref()
+           .map(|x| x.scale_factor() as f32)
+           .unwrap_or(1.) as f64;
+       *app.world.resource_mut(window_scale_factor()) = scale_factor;
+       *app_.lock() = Some(app);
+
+        AppWrapper{
+            app:Arc::new(Mutex::new(Some(app))),
+            event_loop:None,
             window:Some(Arc::new(window)),
             once:false
         }
@@ -963,6 +1117,8 @@ pub struct App {
 
     #[cfg(target_os = "unknown")]
     force_resize_event_rx: flume::Receiver<(u32, u32)>,
+    #[cfg(target_os ="ios")]
+    view:Option<Object>
 }
 
 impl std::fmt::Debug for App {

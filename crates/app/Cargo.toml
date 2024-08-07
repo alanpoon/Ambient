@@ -40,6 +40,7 @@ puffin_http = { workspace = true, optional = true }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 tokio = {workspace = true}
+raw-window-handle.workspace = true
 
 [dev-dependencies]
 ambient_primitives = { path = "../primitives" , version = "0.3.1-dev" }
@@ -73,3 +74,9 @@ thread-priority = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21.1"
+
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+libc.workspace = true
+objc.workspace = true
+core-graphics.workspace = true
+env_logger.workspace = true
