@@ -163,7 +163,7 @@ impl Gpu {
         } else {
             None
         };
-
+        let scale_factor = 1.0;
         tracing::debug!("Swapchain present mode: {swapchain_mode:?}");
 
         if let (Some(surface), Some(mode), Some(format)) =
