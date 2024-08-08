@@ -762,6 +762,7 @@ pub struct AppWrapper{
     pub event_loop: Option<EventLoop<()>>,
     pub window: Option<Arc<Window>>,
     pub once:bool,
+    pub runtime:tokio::runtime::Runtime,
 }
 #[cfg(target_os = "android")]
 extern crate jni;
@@ -788,15 +789,18 @@ impl AppWrapper{
         //     height: 800,
         // });
         let window = window.build(&event_loop).unwrap();
+        let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
+
         AppWrapper{
             app:Arc::new(Mutex::new(None)),
             event_loop:Some(event_loop),
             window:Some(Arc::new(window)),
-            once:false
+            once:false,
+            runtime:rt
         }
     }
     #[cfg(target_os="ios")]
-    pub fn new_with_view(ios_obj: ffi::IOSViewObj,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static,box_c:Box<dyn Fn()>)->AppWrapper{
+    pub fn new_with_view(ios_obj: ffi::IOSViewObj,box_c:Box<dyn Fn()>)->AppWrapper{
         let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
         let runtime = rt.handle();
         let assets: AssetCache = AssetCache::new(runtime.clone());
@@ -827,7 +831,8 @@ impl AppWrapper{
             app:Arc::new(Mutex::new(Some(app))),
             event_loop:None,
             window:Some(Arc::new(window)),
-            once:false
+            once:false,
+            runtime:rt
         }
     }
     pub fn new_with_event_loop(event_loop:EventLoop<()>)->AppWrapper{
@@ -836,14 +841,15 @@ impl AppWrapper{
         //     height: 800,
         // });
         let window = WindowBuilder::new();
-
+        let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
         let window = window.build(&event_loop).unwrap();
 
         AppWrapper{
             app:Arc::new(Mutex::new(None)),
             event_loop:Some(event_loop),
             window:Some(Arc::new(window)),
-            once:false
+            once:false,
+            runtime:rt
         }
     }
     #[cfg(not(target_os="android"))]
@@ -1093,6 +1099,23 @@ impl AppWrapper{
             //     }
             // }
         }
+    }
+    #[cfg(target_os="ios")]
+    pub fn run_with_view(mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static){
+        let i_c = init.clone();
+        let app_c = self.app.clone();
+        std::thread::spawn(move||{
+            self.rt.block_on(async move{
+                if let Some(app ) =app_c.lock().as_mut(){
+                    i_c.call(app).await;
+                }
+                use std::time::{Duration};
+                use std::thread::sleep;
+                loop{
+                    sleep(Duration::new(5,0));
+                }
+            });
+        });
     }
 }
 pub struct App {
