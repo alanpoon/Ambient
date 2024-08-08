@@ -37,6 +37,9 @@ tracing = { workspace = true }
 serde = { workspace = true }
 cfg-if = { workspace = true }
 raw-window-handle.workspace = true
+libc = {workspace = true}
+objc = {workspace = true }
+core-graphics = {workspace =true }
 
 [features]
 hotload-includes = ['ambient_native_std/hotload-includes']

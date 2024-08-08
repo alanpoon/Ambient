@@ -9,7 +9,8 @@ use wgpu::{InstanceDescriptor, PresentMode, TextureFormat};
 use winit::window::Window;
 #[cfg(target_os="ios")]
 use core_graphics::{base::CGFloat, geometry::CGRect};
-
+#[cfg(target_os="ios")]
+use objc::*;
 // #[cfg(debug_assertions)]
 pub const DEFAULT_SAMPLE_COUNT: u32 = 1;
 // #[cfg(not(debug_assertions))]
