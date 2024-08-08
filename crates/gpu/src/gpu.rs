@@ -11,6 +11,8 @@ use winit::window::Window;
 use core_graphics::{base::CGFloat, geometry::CGRect};
 #[cfg(target_os="ios")]
 use objc::*;
+#[cfg(target_os="ios")]
+use libc::c_void;
 // #[cfg(debug_assertions)]
 pub const DEFAULT_SAMPLE_COUNT: u32 = 1;
 // #[cfg(not(debug_assertions))]
@@ -37,7 +39,7 @@ impl Gpu {
         Self::with_config(window, false, &RenderSettings::default()).await
     }
     #[cfg(target_os="ios")]
-    pub async fn with_view<T>(view: Option<T>, will_be_polled: bool,settings:&RenderSettings) ->anyhow::Result<Self>
+    pub async fn with_view<T>(view: Option<T>, metal_layer:*mut c_void, will_be_polled: bool,settings:&RenderSettings) ->anyhow::Result<Self>
         where T:raw_window_handle::HasRawDisplayHandle + raw_window_handle::HasRawWindowHandle {
         let backends = if cfg!(target_os = "windows") {
             wgpu::Backends::VULKAN
@@ -156,7 +158,7 @@ impl Gpu {
         if let (Some(window), Some(surface), Some(mode), Some(format)) =
             (view, &surface, swapchain_mode, swapchain_format)
         {
-            let s: CGRect = unsafe { msg_send![window, frame] };
+            let s: CGRect = unsafe { msg_send![metal_layer, frame] };
             let size = (
                 (s.size.width as f32 * scale_factor) as u32,
                 (s.size.height as f32 * scale_factor) as u32,
