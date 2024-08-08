@@ -20,8 +20,9 @@ pub const DEFAULT_SAMPLE_COUNT: u32 = 1;
 // #[cfg(not(debug_assertions))]
 // pub const DEFAULT_SAMPLE_COUNT: u32 = 4;
 use raw_window_handle::{RawWindowHandle, HasRawWindowHandle, Win32WindowHandle};
-use std::ffi::c_void;
+#[cfg(target_os="ios")]
 pub struct WrapWindow(*mut c_void);
+#[cfg(target_os="ios")]
 unsafe impl HasRawWindowHandle for WrapWindow {
     fn raw_window_handle(&self) -> RawWindowHandle {
         let mut handle = Win32WindowHandle::empty();
@@ -165,11 +166,11 @@ impl Gpu {
         };
 
         tracing::debug!("Swapchain present mode: {swapchain_mode:?}");
-
+        let scale_factor = 1.0;
         if let (Some(surface), Some(mode), Some(format)) =
             (&surface, swapchain_mode, swapchain_format)
         {
-            let s: CGRect = unsafe { msg_send![WrapWindow(metal_layer.unwrap()), frame] };
+            let s: CGRect = unsafe { msg_send![view, frame] };
             let size = (
                 (s.size.width as f32 * scale_factor) as u32,
                 (s.size.height as f32 * scale_factor) as u32,

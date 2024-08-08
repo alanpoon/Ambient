@@ -21,10 +21,10 @@ unsafe impl HasRawWindowHandle for IOSViewObj {
     fn raw_window_handle(&self) -> RawWindowHandle {
         // Use the appropriate RawWindowHandle variant for your platform
         // Here, we use a dummy implementation for demonstration
-        RawWindowHandle::Win32(raw_window_handle::Win32Handle {
+        RawWindowHandle::Win32(raw_window_handle::AppKitWindowHandle {
             hwnd: self.metal_layer as *mut _,
             hinstance: std::ptr::null_mut(),
-            ..raw_window_handle::Win32Handle::empty()
+            ..raw_window_handle::AppKitWindowHandle::empty()
         })
     }
 }

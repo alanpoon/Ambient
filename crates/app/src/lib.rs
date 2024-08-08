@@ -46,6 +46,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{CursorGrabMode, Fullscreen, Window, WindowBuilder},
 };
+use ambient_app::gpu::WrapWindow;
+pub use ambient_app::gpu;
 #[cfg(target_os="ios")]
 use objc::{runtime::Object, *};
 #[cfg_attr(target_os = "ios", path = "ffi/ios.rs")]
@@ -814,7 +816,7 @@ impl AppWrapper{
                .with_asset_cache(assets)
                .headless(headless)
                .update_title_with_fps_stats(false)
-               .build_view(Some(ios_obj.view),Some(ios_obj.metal_layer)).await.unwrap()
+               .build_view(Some(ios_obj.view),Some(WrapWindow(ios_obj.metal_layer))).await.unwrap()
        });
            // thread code
         let scale_factor = self
