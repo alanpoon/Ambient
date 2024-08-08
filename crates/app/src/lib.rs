@@ -612,7 +612,7 @@ impl AppBuilder {
         })
     }
     #[cfg(target_os="ios")]
-    pub async fn build_view<T>(self,view:Option<T>,metal_layer:*mut c_void ) -> anyhow::Result<App> where T:raw_window_handle:: HasRawWindowHandle + raw_window_handle::HasRawDisplayHandle {
+    pub async fn build_view<T>(self,view:*mut Object, metal_layer:Option<T> ) -> anyhow::Result<App> where T:raw_window_handle:: HasRawWindowHandle + raw_window_handle::HasRawDisplayHandle {
         crate::init_all_components();
 
         let runtime: RuntimeHandle = RuntimeHandle::current();
@@ -624,7 +624,7 @@ impl AppBuilder {
         let settings = SettingsKey.get(&assets);
         let (cursor_lock_tx, cursor_lock_rx) = flume::unbounded::<bool>();
         let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
-        let gpu = Arc::new(Gpu::with_view(view,metal_layer, true, &settings.render).await?);
+        let gpu = Arc::new(Gpu::with_view(view,Some(metal_layer), true, &settings.render).await?);
         tracing::info!("settings {:?}",settings);
 
         tracing::debug!("Inserting runtime");
@@ -814,7 +814,7 @@ impl AppWrapper{
                .with_asset_cache(assets)
                .headless(headless)
                .update_title_with_fps_stats(false)
-               .build_view(Some(ios_obj.view),ios_obj.metal_layer).await.unwrap()
+               .build_view(Some(ios_obj.view),Some(ios_obj.metal_layer)).await.unwrap()
        });
            // thread code
         let scale_factor = self
