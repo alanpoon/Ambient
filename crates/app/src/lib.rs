@@ -758,7 +758,7 @@ pub struct AppWrapper{
     pub event_loop: Option<EventLoop<()>>,
     pub window: Option<Arc<Window>>,
     pub once:bool,
-    pub runtime:tokio::runtime::Runtime,
+    pub runtime:Arc<tokio::runtime::Runtime>,
 }
 #[cfg(target_os = "android")]
 extern crate jni;
@@ -793,7 +793,7 @@ impl AppWrapper{
             event_loop:Some(event_loop),
             window:Some(Arc::new(window)),
             once:false,
-            runtime:rt
+            runtime:Arc::new(rt)
         }
     }
     pub fn new_with_view(ios_obj: ffi::IOSViewObj,box_c:Box<dyn Fn()>)->AppWrapper{
@@ -821,7 +821,7 @@ impl AppWrapper{
             event_loop:None,
             window:None,
             once:false,
-            runtime:rt
+            runtime:Arc::new(rt)
         }
     }
     pub fn new_with_event_loop(event_loop:EventLoop<()>)->AppWrapper{
@@ -838,7 +838,7 @@ impl AppWrapper{
             event_loop:Some(event_loop),
             window:Some(Arc::new(window)),
             once:false,
-            runtime:rt
+            runtime:Arc::new(rt)
         }
     }
     #[cfg(not(target_os="android"))]
@@ -1092,8 +1092,10 @@ impl AppWrapper{
     pub fn run_with_view(&mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static){
         let i_c = init.clone();
         let app_c = self.app.clone();
+        let rt = self.runtime.clone();
         std::thread::spawn(move||{
-            self.runtime.block_on(async move{
+            //self.runtime.block_on(async move{
+               rt.block_on(async move{
                 if let Some(app ) =app_c.lock().as_mut(){
                     i_c.call(app).await;
                 }
