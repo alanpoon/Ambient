@@ -7,26 +7,32 @@ use bytemuck::{Pod, Zeroable};
 use glam::{uvec2, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
 use wgpu::{InstanceDescriptor, PresentMode, TextureFormat};
 use winit::window::Window;
-#[cfg(target_os="ios")]
-use core_graphics::{base::CGFloat, geometry::CGRect};
-#[cfg(target_os="ios")]
+//use core_graphics::{base::CGFloat, geometry::CGRect};
+pub struct CGRect{
+    pub size_width: u32,
+    pub size_height: u32
+}
 use objc::*;
-#[cfg(target_os="ios")]
 use objc::runtime::Object;
-#[cfg(target_os="ios")]
 use libc::c_void;
 // #[cfg(debug_assertions)]
 pub const DEFAULT_SAMPLE_COUNT: u32 = 1;
 // #[cfg(not(debug_assertions))]
 // pub const DEFAULT_SAMPLE_COUNT: u32 = 4;
-use raw_window_handle::{RawWindowHandle, HasRawWindowHandle, Win32WindowHandle};
-use std::ffi::c_void;
-pub struct WrapWindow(*mut c_void);
+use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle, HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle,RawDisplayHandle};
+pub struct WrapWindow(pub *mut c_void);
 unsafe impl HasRawWindowHandle for WrapWindow {
     fn raw_window_handle(&self) -> RawWindowHandle {
-        let mut handle = Win32WindowHandle::empty();
-        handle.hwnd = self.0 as *mut std::ffi::c_void;
-        RawWindowHandle::Win32(handle)
+        let mut handle = AppKitWindowHandle::empty();
+        handle.ns_window = self.0 as *mut std::ffi::c_void;
+        RawWindowHandle::AppKit(handle)
+    }
+}
+unsafe impl HasRawDisplayHandle for WrapWindow {
+    fn raw_display_handle(&self) -> RawDisplayHandle {
+        let mut handle = AppKitDisplayHandle::empty();
+        //handle.ns_view = self.0 as *mut std::ffi::c_void;
+        RawDisplayHandle::AppKit(handle)
     }
 }
 #[derive(Debug)]
@@ -49,8 +55,7 @@ impl Gpu {
     pub async fn new(window: Option<&Window>) -> anyhow::Result<Self> {
         Self::with_config(window, false, &RenderSettings::default()).await
     }
-    #[cfg(target_os="ios")]
-    pub async fn with_view<T>(view:*mut Object, metal_layer:Option<T>, will_be_polled: bool,settings:&RenderSettings) ->anyhow::Result<Self>
+    pub async fn with_view<T>(view:Option<*mut Object>, metal_layer:Option<T>, will_be_polled: bool,settings:&RenderSettings) ->anyhow::Result<Self>
         where T:raw_window_handle::HasRawDisplayHandle + raw_window_handle::HasRawWindowHandle {
         let backends = if cfg!(target_os = "windows") {
             wgpu::Backends::VULKAN
@@ -163,17 +168,13 @@ impl Gpu {
         } else {
             None
         };
-        let scale_factor = 1.0;
+        let scale_factor = get_scale_factor(view);
         tracing::debug!("Swapchain present mode: {swapchain_mode:?}");
 
         if let (Some(surface), Some(mode), Some(format)) =
             (&surface, swapchain_mode, swapchain_format)
         {
-            let s: CGRect = unsafe { msg_send![WrapWindow(metal_layer.unwrap()), frame] };
-            let size = (
-                (s.size.width as f32 * scale_factor) as u32,
-                (s.size.height as f32 * scale_factor) as u32,
-            );
+            let size = get_view_size(view,scale_factor);
             surface.configure(
                 &device,
                 &Self::create_sc_desc(format, mode, uvec2(size.0, size.1)),
@@ -291,26 +292,6 @@ impl Gpu {
         };
 
         tracing::info!("Using device features: {features:?}");
-
-        // let (device, queue) = adapter
-        //     .request_device(
-        //         &wgpu::DeviceDescriptor {
-        //             label: None,
-        //             features: wgpu::Features::default()
-        //                 | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
-        //                 // | wgpu::Features::POLYGON_MODE_LINE
-        //                 | features,
-        //             limits: wgpu::Limits {
-        //                 max_bind_groups: 8,
-        //                 max_storage_buffer_binding_size: adapter_limits
-        //                     .max_storage_buffer_binding_size,
-        //                 ..Default::default()
-        //             },
-        //         },
-        //         None,
-        //     )
-        //     .await
-        //     .context("Failed to request a device")?;
         let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
@@ -455,9 +436,9 @@ impl WgslType for UVec4 {
         "vec4<u32>"
     }
 }
-#[cfg(target_os="ios")]
-fn get_scale_factor(obj: *mut Object) -> f32 {
-    let mut _scale_factor: CGFloat = 1.0;
+pub fn get_scale_factor(obj: *mut Object) -> f32 {
+    //let mut _scale_factor: CGFloat = 1.0;
+    let mut _scale_factor = 1.0;
     #[cfg(target_os = "macos")]
     unsafe {
         let window: *mut Object = msg_send![obj, window];
@@ -466,10 +447,23 @@ fn get_scale_factor(obj: *mut Object) -> f32 {
         }
     };
 
-    #[cfg(target_os = "ios")]
     {
         _scale_factor = unsafe { msg_send![obj, contentScaleFactor] };
     }
 
     _scale_factor as f32
+}
+
+#[cfg(not(target_os="ios"))]
+pub fn get_view_size(view:*mut Object,scale_factor: f32)-> (u32, u32){
+   (500,500)
+}
+#[cfg(target_os="ios")]
+pub fn get_view_size(view:*mut Object,scale_factor: f32)-> (u32, u32){
+    use core_graphics::{base::CGFloat, geometry::CGRect};
+    let s: CGRect = unsafe { msg_send![view, frame] };
+    (
+        (s.size.width as f32 * scale_factor) as u32,
+        (s.size.height as f32 * scale_factor) as u32,
+    )
 }

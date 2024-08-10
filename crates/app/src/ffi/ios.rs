@@ -1,4 +1,4 @@
-use core_graphics::{base::CGFloat, geometry::CGRect};
+//use core_graphics::{base::CGFloat, geometry::CGRect};
 use libc::c_void;
 use objc::{runtime::Object, *};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
@@ -17,24 +17,25 @@ pub struct IOSViewObj {
     // 外部函数接口，用于给 iOS 端传递状态码
     pub callback_to_swift: extern "C" fn(arg: i32),
 }
-unsafe impl HasRawWindowHandle for IOSViewObj {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        // Use the appropriate RawWindowHandle variant for your platform
-        // Here, we use a dummy implementation for demonstration
-        RawWindowHandle::Win32(raw_window_handle::Win32Handle {
-            hwnd: self.metal_layer as *mut _,
-            hinstance: std::ptr::null_mut(),
-            ..raw_window_handle::Win32Handle::empty()
-        })
-    }
-}
+// unsafe impl HasRawWindowHandle for IOSViewObj {
+//     fn raw_window_handle(&self) -> RawWindowHandle {
+//         // Use the appropriate RawWindowHandle variant for your platform
+//         // Here, we use a dummy implementation for demonstration
+//         RawWindowHandle::Win32(raw_window_handle::Win32Handle {
+//             hwnd: self.metal_layer as *mut _,
+//             hinstance: std::ptr::null_mut(),
+//             ..raw_window_handle::Win32Handle::empty()
+//         })
+//     }
+// }
 #[no_mangle]
 pub fn create_wgpu_canvas(ios_obj: IOSViewObj) -> *mut libc::c_void {
     println!(
         "create_wgpu_canvas, maximum frames: {}",
         ios_obj.maximum_frames
     );
-    let obj = WgpuCanvas::new(AppSurface::new(ios_obj), 0_i32);
+    let obj = ios_obj;
+    //let obj = WgpuCanvas::new(AppSurface::new(ios_obj), 0_i32);
     // 使用 Box 对 Rust 对象进行装箱操作。
     // 我们无法将 Rust 对象直接传递给外部语言，通过装箱来传递此对象的胖指针
     let box_obj = Box::new(obj);

@@ -112,7 +112,7 @@ pub fn run(
         builder
     };
 
-    let mut app = rt.block_on(builder.build()).expect("Failed to create app");
+    let mut app = rt.block_on(builder.build(None)).expect("Failed to create app");
 
     *app.world.resource_mut(window_title()) = "Ambient".to_string();
 
@@ -135,19 +135,20 @@ pub fn run(
     .el()
     .spawn_interactive(&mut app.world);
 
-    let status = app.run_blocking();
-    match status {
-        ExitStatus::SUCCESS => Ok(()),
-        ExitStatus::FAILURE => {
-            anyhow::bail!("The Ambient application exited with a failure status code.")
-        }
-        other => {
-            anyhow::bail!(
-                "The Ambient application exited with an unknown status code: {:?}",
-                other
-            )
-        }
-    }
+    // let status = app.run_blocking();
+    // match status {
+    //     ExitStatus::SUCCESS => Ok(()),
+    //     ExitStatus::FAILURE => {
+    //         anyhow::bail!("The Ambient application exited with a failure status code.")
+    //     }
+    //     other => {
+    //         anyhow::bail!(
+    //             "The Ambient application exited with an unknown status code: {:?}",
+    //             other
+    //         )
+    //     }
+    // }
+    Ok(())
 }
 
 #[element_component]

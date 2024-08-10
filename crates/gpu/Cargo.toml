@@ -39,6 +39,7 @@ cfg-if = { workspace = true }
 raw-window-handle.workspace = true
 libc = {workspace = true}
 objc = {workspace = true }
+[target.'cfg(target_os="ios")'.dependencies]
 core-graphics = {workspace =true }
 
 [features]
