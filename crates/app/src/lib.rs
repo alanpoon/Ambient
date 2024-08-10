@@ -1089,7 +1089,7 @@ impl AppWrapper{
             // }
         }
     }
-    pub fn run_with_view(mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static){
+    pub fn run_with_view(&mut self,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static){
         let i_c = init.clone();
         let app_c = self.app.clone();
         std::thread::spawn(move||{

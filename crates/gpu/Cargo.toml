@@ -40,7 +40,7 @@ raw-window-handle.workspace = true
 libc = {workspace = true}
 objc = {workspace = true }
 [target.'cfg(target_os="ios")'.dependencies]
-core-graphics = {workspace =true }
+core-graphics = {workspace = true }
 
 [features]
 hotload-includes = ['ambient_native_std/hotload-includes']

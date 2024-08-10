@@ -168,6 +168,7 @@ impl Gpu {
         } else {
             None
         };
+        let view = view.unwrap();
         let scale_factor = get_scale_factor(view);
         tracing::debug!("Swapchain present mode: {swapchain_mode:?}");
 

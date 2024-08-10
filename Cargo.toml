@@ -206,7 +206,6 @@ raw-window-handle = "0.5.2"
 # macOS, iOS
 libc = "0.2"
 objc = "0.2.7"
-[target.'cfg(target_os="ios")'.dependencies]
 core-graphics = "0.23.1"
 
 [profile.dev.package.cranelift-codegen]
