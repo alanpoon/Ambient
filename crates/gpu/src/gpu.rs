@@ -97,6 +97,19 @@ impl Gpu {
             .map(|window| unsafe { instance.create_surface(&window) })
             .transpose()
             .context("Failed to create surface")?;
+        // let surface = unsafe {
+        //     instance
+        //         .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::CoreAnimationLayer(
+        //             obj.metal_layer,
+        //         ))
+        //         .expect("Surface creation failed")
+        // };
+        {
+            tracing::debug!("Available adapters:");
+            for adapter in instance.enumerate_adapters(wgpu::Backends::METAL) {
+                println!("Adapter: {:?}", adapter.get_info());
+            }
+        }
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
