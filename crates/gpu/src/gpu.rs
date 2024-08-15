@@ -93,7 +93,7 @@ impl Gpu {
         });
 
         let surface = metal_layer
-            .map(|window| unsafe { instance.create_surface_from_core_animation_layer(&window) })
+            .map(|window| unsafe { instance.create_surface_from_core_animation_layer(window) })
             .transpose()
             .context("Failed to create surface")?;
         // let surface = unsafe {
