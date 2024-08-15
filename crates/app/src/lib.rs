@@ -803,8 +803,10 @@ impl AppWrapper{
         let _settings = SettingsKey.get(&assets);
         box_c();
         let scale_factor = get_scale_factor(ios_obj.view);
+        println!("scale_factor {:?}",scale_factor);
         let (width,height) = get_view_size(ios_obj.view,scale_factor);
         let headless = Some(uvec2(width, height));
+        println!("headless {:?}",headless);
         let mut app =  rt.block_on(async move {
             AppBuilder::new()
                .ui_renderer(true)
@@ -1000,7 +1002,7 @@ impl AppWrapper{
                     .map(|x| x.scale_factor() as f32)
                     .unwrap_or(1.) as f64;
                     tracing::info!("scale_factor {:?}",scale_factor);
-                    let app =  rt.block_on(async move {
+                    let mut app =  rt.block_on(async move {
                          AppBuilder::new()
                             .ui_renderer(true)
                             .with_asset_cache(assets)
@@ -1012,6 +1014,7 @@ impl AppWrapper{
 
                     *app.world.resource_mut(window_scale_factor()) = scale_factor;
                     *app_.lock() = Some(app);
+
                     unsafe{
                         LOADED = true;
                     }
@@ -1019,15 +1022,19 @@ impl AppWrapper{
                     let quit = unsafe{
                         QUIT
                     };
-                    std::thread::spawn(||{
+                    let mut app_c = app_.clone();
+                    std::thread::spawn(move||{
                         rt.block_on(async move{
-                            i_c.call(&mut app,android_app_c).await;
-                               use std::time::{Duration};
-                            use std::thread::sleep;
-                            loop{
-                                sleep(Duration::new(5,0));
+                            if let Some(app ) =app_c.lock().as_mut(){
+                                i_c.call(app,android_app_c).await;
+                                use std::time::{Duration};
+                                use std::thread::sleep;
+                                loop{
+                                    sleep(Duration::new(5,0));
 
-                            }
+                                }
+                              }
+
                         });
                     });
 

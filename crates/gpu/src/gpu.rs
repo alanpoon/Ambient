@@ -55,8 +55,7 @@ impl Gpu {
     pub async fn new(window: Option<&Window>) -> anyhow::Result<Self> {
         Self::with_config(window, false, &RenderSettings::default()).await
     }
-    pub async fn with_view<T>(view:Option<*mut Object>, metal_layer:Option<T>, will_be_polled: bool,settings:&RenderSettings) ->anyhow::Result<Self>
-        where T:raw_window_handle::HasRawDisplayHandle + raw_window_handle::HasRawWindowHandle {
+    pub async fn with_view(view:Option<*mut Object>, metal_layer:Option<*mut c_void>, will_be_polled: bool,settings:&RenderSettings) ->anyhow::Result<Self> {
         let backends = if cfg!(target_os = "windows") {
             wgpu::Backends::VULKAN
         } else if cfg!(target_os = "android") {
@@ -94,7 +93,7 @@ impl Gpu {
         });
 
         let surface = metal_layer
-            .map(|window| unsafe { instance.create_surface(&window) })
+            .map(|window| unsafe { instance.create_surface_from_core_animation_layer(&window) })
             .transpose()
             .context("Failed to create surface")?;
         // let surface = unsafe {
