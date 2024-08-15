@@ -91,20 +91,12 @@ impl Gpu {
             //     dxc_path: Some("./dxcompiler.dll".into()),
             // },
         });
-        #[cfg(target_os="ios")]
+        
         let surface = metal_layer
-            .map(|window| unsafe { instance.create_surface_from_core_animation_layer(window) })
-            .transpose()
-            .context("Failed to create surface")?;
-        #[cfg(not(target_os="ios"))]
-        {use std::ptr;
-
-        let ptr: *mut c_void = ptr::null_mut();
-        let surface = metal_layer
-            .map(|window| unsafe { instance.create_surface(WrapWindow(ptr)) })
-            .transpose()
-            .context("Failed to create surface")?;
-        }
+            .map(|window| unsafe { instance.create_surface_from_core_animation_layer(window) });
+            // .transpose()
+            // .context("Failed to create surface")?;
+      
         // let surface = unsafe {
         //     instance
         //         .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::CoreAnimationLayer(

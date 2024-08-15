@@ -46,6 +46,7 @@ use winit::{
     window::{CursorGrabMode, Fullscreen, Window, WindowBuilder},
 };
 use objc::{runtime::Object, *};
+use libc::c_void;
 pub mod ffi;
 static mut QUIT:bool = false;
 static mut LOADED:bool = false;
@@ -608,7 +609,7 @@ impl AppBuilder {
         })
     }
 
-    pub async fn build_view<T>(self,view:Option<*mut Object>, metal_layer:Option<WrapWindow> ) -> anyhow::Result<App>{
+    pub async fn build_view(self,view:Option<*mut Object>, metal_layer:Option<*mut c_void> ) -> anyhow::Result<App>{
         crate::init_all_components();
 
         let runtime: RuntimeHandle = RuntimeHandle::current();
@@ -813,7 +814,7 @@ impl AppWrapper{
                .with_asset_cache(assets)
                .headless(headless)
                .update_title_with_fps_stats(false)
-               .build_view::<WrapWindow>(Some(ios_obj.view),Some(WrapWindow(ios_obj.metal_layer))).await.unwrap()
+               .build_view(Some(ios_obj.view),Some(ios_obj.metal_layer)).await.unwrap()
        });
        *app.world.resource_mut(window_scale_factor()) = scale_factor as f64;
        //*app_.lock() = Some(app);
