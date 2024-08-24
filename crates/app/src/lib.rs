@@ -608,7 +608,7 @@ impl AppBuilder {
             //view:None
         })
     }
-
+    #[cfg(target_os="ios")]
     pub async fn build_view(self,view:Option<*mut Object>, metal_layer:Option<*mut c_void> ) -> anyhow::Result<App>{
         crate::init_all_components();
 
@@ -797,6 +797,7 @@ impl AppWrapper{
             runtime:Arc::new(rt)
         }
     }
+    #[cfg(target_os="ios")]
     pub fn new_with_view(ios_obj: ffi::IOSViewObj,box_c:Box<dyn Fn()>)->AppWrapper{
         let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
         let runtime = rt.handle();
@@ -816,6 +817,20 @@ impl AppWrapper{
                .update_title_with_fps_stats(false)
                .build_view(Some(ios_obj.view),Some(ios_obj.metal_layer)).await.unwrap()
        });
+       let mut app_c = app_.clone();
+       std::thread::spawn(move||{
+        //self.runtime.block_on(async move{
+           rt.block_on(async move{
+            if let Some(app ) =app_c.lock().as_mut(){
+                i_c.call(app).await;
+            }
+            use std::time::{Duration};
+            use std::thread::sleep;
+            loop{
+                sleep(Duration::new(5,0));
+            }
+        });
+        });
        *app.world.resource_mut(window_scale_factor()) = scale_factor as f64;
        //*app_.lock() = Some(app);
 
@@ -881,7 +896,7 @@ impl AppWrapper{
                            .headless(headless)
                            .update_title_with_fps_stats(false)
                            .build(window).await.unwrap()
-                   });
+                    });
                        // thread code
                     let scale_factor = self
                        .window
@@ -902,7 +917,7 @@ impl AppWrapper{
                        rt.block_on(async move{
                           if let Some(app ) =app_c.lock().as_mut(){
                             i_c.call(app).await;
-                          }
+                           }
                            use std::time::{Duration};
                            use std::thread::sleep;
                            loop{

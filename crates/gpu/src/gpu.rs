@@ -55,6 +55,7 @@ impl Gpu {
     pub async fn new(window: Option<&Window>) -> anyhow::Result<Self> {
         Self::with_config(window, false, &RenderSettings::default()).await
     }
+    #[cfg(target_os="ios")]
     pub async fn with_view(view:Option<*mut Object>, metal_layer:Option<*mut c_void>, will_be_polled: bool,settings:&RenderSettings) ->anyhow::Result<Self> {
         let backends = if cfg!(target_os = "windows") {
             wgpu::Backends::VULKAN
@@ -91,19 +92,10 @@ impl Gpu {
             //     dxc_path: Some("./dxcompiler.dll".into()),
             // },
         });
-        
+
         let surface = metal_layer
             .map(|window| unsafe { instance.create_surface_from_core_animation_layer(window) });
-            // .transpose()
-            // .context("Failed to create surface")?;
-      
-        // let surface = unsafe {
-        //     instance
-        //         .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::CoreAnimationLayer(
-        //             obj.metal_layer,
-        //         ))
-        //         .expect("Surface creation failed")
-        // };
+
         {
             tracing::debug!("Available adapters:");
             for adapter in instance.enumerate_adapters(wgpu::Backends::METAL) {
