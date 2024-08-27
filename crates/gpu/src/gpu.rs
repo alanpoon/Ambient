@@ -110,7 +110,7 @@ impl Gpu {
             })
             .await
             .context("Failed to find an appopriate adapter")?;
-
+        println!("adapter.get_info {:?}",adapter.get_info());
         tracing::info!("Using gpu adapter: {:?}", adapter.get_info());
 
         tracing::info!("Adapter features:\n{:#?}", adapter.features());
@@ -125,7 +125,10 @@ impl Gpu {
                 let features = wgpu::Features::empty();
             } else if #[cfg(target_os = "android")]{
                 let features = wgpu::Features::empty();
-            } else if #[cfg(target_os = "unknown")] {
+            } else if #[cfg(target_os = "ios")]{
+                let features = wgpu::Features::empty();
+            }
+            else if #[cfg(target_os = "unknown")] {
 
                 // Same as above, but the *web*gpu target requires a feature flag to be set, or
                 // else indirect commands no-op
@@ -140,7 +143,7 @@ impl Gpu {
         };
 
         tracing::info!("Using device features: {features:?}");
-
+        println!("using device features {features:?}");
         let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
@@ -175,12 +178,17 @@ impl Gpu {
         };
         let view = view.unwrap();
         let scale_factor = get_scale_factor(view);
+        //debug
+        let scale_factor = 3.0;
         tracing::debug!("Swapchain present mode: {swapchain_mode:?}");
-
+        println!("bscalre_factor {:?}",scale_factor);
+        println!("..surface {:?} {:?} {:?}",surface,swapchain_mode,swapchain_format);
         if let (Some(surface), Some(mode), Some(format)) =
             (&surface, swapchain_mode, swapchain_format)
         {
+
             let size = get_view_size(view,scale_factor);
+            println!(".size {:?} ",size);
             surface.configure(
                 &device,
                 &Self::create_sc_desc(format, mode, uvec2(size.0, size.1)),
@@ -225,7 +233,7 @@ impl Gpu {
         } else {
             wgpu::Backends::all()
         };
-        println!("backends{:?}",backends);
+        println!("backends with_config{:?}",backends);
         let instance = wgpu::Instance::new(InstanceDescriptor {
             backends,
             // NOTE: Vulkan is used for windows as a non-zero indirect `first_instance` is not supported, and we have to resort direct rendering
@@ -251,6 +259,7 @@ impl Gpu {
             .transpose()
             .context("Failed to create surface")?;
         tracing::info!("...surface {:?}",surface);
+        println!("...surface {:?}",surface);
         #[cfg(not(target_os = "unknown"))]
         {
             tracing::debug!("Available adapters:");
@@ -332,11 +341,12 @@ impl Gpu {
         };
 
         tracing::debug!("Swapchain present mode: {swapchain_mode:?}");
-
+        println!("zxc window {:?} surface {:?} swapchain_main {:?} swapchain format {:?}",window,surface,swapchain_mode,swapchain_format);
         if let (Some(window), Some(surface), Some(mode), Some(format)) =
             (window, &surface, swapchain_mode, swapchain_format)
         {
             let size = window.inner_size();
+            println!("zxc size {:?}",size);
             surface.configure(
                 &device,
                 &Self::create_sc_desc(format, mode, uvec2(size.width, size.height)),
