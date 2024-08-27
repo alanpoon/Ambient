@@ -622,11 +622,20 @@ impl AppBuilder {
         let (cursor_lock_tx, cursor_lock_rx) = flume::unbounded::<bool>();
         let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
         let gpu = Arc::new(Gpu::with_view(view,metal_layer, true, &settings.render).await?);
-        tracing::info!("settings {:?}",settings);
 
+
+
+        tracing::info!("settings {:?}",settings);
+        println!("print settings {:?}",settings);
         tracing::debug!("Inserting runtime");
         RuntimeKey.insert(&assets, runtime.clone());
         GpuKey.insert(&assets, gpu.clone());
+        // for test
+        // let input = ambient_gpu::Vec4::ONE;
+        // let res: Vec2 = ambient_gpu::gpu_run::GpuRun::new("TestGpuRun", "return (input * 3.).xy;")
+        //     .run(&gpu, &assets, input)
+        //     .await;
+        // println!(" gpu run res {:?}",res);
         // WindowKey.insert(&assets, window.clone());
 
         tracing::debug!("Inserting app resources");
@@ -640,7 +649,7 @@ impl AppBuilder {
         //         (headless_size, headless_size, 1.)
         //     };
         let (window_physical_size, window_logical_size, window_scale_factor) ={
-            (UVec2::new(500,500),UVec2::new(500, 500),1.0)
+            (UVec2::new(1000,1000),UVec2::new(1000, 1000),3.0)
         };
         tracing::info!("window_physical_size {:?},window_logical_size {:?}.{:?}",window_physical_size,window_logical_size,window_scale_factor);
         let app_resources = AppResources {
@@ -759,7 +768,7 @@ pub struct AppWrapper{
     pub event_loop: Option<EventLoop<()>>,
     pub window: Option<Arc<Window>>,
     pub once:bool,
-    pub runtime:Arc<tokio::runtime::Runtime>,
+    pub runtime:Arc<Option<tokio::runtime::Runtime>>,
 }
 #[cfg(target_os = "android")]
 extern crate jni;
@@ -794,11 +803,11 @@ impl AppWrapper{
             event_loop:Some(event_loop),
             window:Some(Arc::new(window)),
             once:false,
-            runtime:Arc::new(rt)
+            runtime:Arc::new(None)
         }
     }
     #[cfg(target_os="ios")]
-    pub fn new_with_view(ios_obj: ffi::IOSViewObj,box_c:Box<dyn Fn()>)->AppWrapper{
+    pub fn new_with_view(ios_obj: ffi::IOSViewObj,box_c:Box<dyn Fn()>,init: impl for<'x> AsyncInit<'x>  +Copy+ Clone+Send+'static)->AppWrapper{
         let rt = ambient_sys::task::make_native_multithreaded_runtime().unwrap();
         let runtime = rt.handle();
         let assets: AssetCache = AssetCache::new(runtime.clone());
@@ -806,9 +815,11 @@ impl AppWrapper{
         box_c();
         let scale_factor = get_scale_factor(ios_obj.view);
         println!("scale_factor {:?}",scale_factor);
+        let scale_factor = 3.0;
         let (width,height) = get_view_size(ios_obj.view,scale_factor);
         let headless = Some(uvec2(width, height));
         println!("headless {:?}",headless);
+        let mut app_ = Arc::new(Mutex::new(None));
         let mut app =  rt.block_on(async move {
             AppBuilder::new()
                .ui_renderer(true)
@@ -817,9 +828,26 @@ impl AppWrapper{
                .update_title_with_fps_stats(false)
                .build_view(Some(ios_obj.view),Some(ios_obj.metal_layer)).await.unwrap()
        });
+       *app.world.resource_mut(window_scale_factor()) = scale_factor as f64;
+       let mut control_flow = ControlFlow::default();
+       app.handle_static_event(&Event::WindowEvent {
+            window_id,
+            event:
+                WindowEvent::ScaleFactorChanged {
+                    new_inner_size,
+                    scale_factor,
+                },
+        },&mut control_flow);
+       app.handle_static_event(&Event::MainEventsCleared,&mut control_flow);
+
+       {
+        *app_.lock() = Some(app);
+       }
        let mut app_c = app_.clone();
+       let i_c = init.clone();
        std::thread::spawn(move||{
         //self.runtime.block_on(async move{
+           println!("before block_on");
            rt.block_on(async move{
             if let Some(app ) =app_c.lock().as_mut(){
                 i_c.call(app).await;
@@ -831,15 +859,16 @@ impl AppWrapper{
             }
         });
         });
-       *app.world.resource_mut(window_scale_factor()) = scale_factor as f64;
+
+       //*app.world.resource_mut(window_scale_factor()) = scale_factor as f64;
        //*app_.lock() = Some(app);
 
         AppWrapper{
-            app:Arc::new(Mutex::new(Some(app))),
+            app:Arc::new(Mutex::new(None)),
             event_loop:None,
             window:None,
             once:false,
-            runtime:Arc::new(rt)
+            runtime:Arc::new(None)
         }
     }
     pub fn new_with_event_loop(event_loop:EventLoop<()>)->AppWrapper{
@@ -856,7 +885,7 @@ impl AppWrapper{
             event_loop:Some(event_loop),
             window:Some(Arc::new(window)),
             once:false,
-            runtime:Arc::new(rt)
+            runtime:Arc::new(None)
         }
     }
     #[cfg(not(target_os="android"))]
@@ -1116,19 +1145,19 @@ impl AppWrapper{
         let i_c = init.clone();
         let app_c = self.app.clone();
         let rt = self.runtime.clone();
-        std::thread::spawn(move||{
-            //self.runtime.block_on(async move{
-               rt.block_on(async move{
-                if let Some(app ) =app_c.lock().as_mut(){
-                    i_c.call(app).await;
-                }
-                use std::time::{Duration};
-                use std::thread::sleep;
-                loop{
-                    sleep(Duration::new(5,0));
-                }
-            });
-        });
+        // std::thread::spawn(move||{
+        //     //self.runtime.block_on(async move{
+        //        rt.block_on(async move{
+        //         if let Some(app ) =app_c.lock().as_mut(){
+        //             i_c.call(app).await;
+        //         }
+        //         use std::time::{Duration};
+        //         use std::thread::sleep;
+        //         loop{
+        //             sleep(Duration::new(5,0));
+        //         }
+        //     });
+        // });
     }
 }
 pub struct App {

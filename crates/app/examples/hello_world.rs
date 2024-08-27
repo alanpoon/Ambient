@@ -28,6 +28,7 @@ async fn init(app: &mut App) {
     .with(active_camera(), 0.)
     .with(main_scene(), ())
     .spawn(world);
+    println!("hello_world");
 }
 
 fn main() {
