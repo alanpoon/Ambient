@@ -512,7 +512,9 @@ impl AppBuilder {
         let _ = thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Max);
 
         let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
-        let gpu = Arc::new(Gpu::with_config(window.as_deref(), true, &settings.render).await?);
+        let mut gpu = Gpu::with_config(window.as_deref(), true, &settings.render).await?;
+        println!("gpu render ");
+        let gpu = Arc::new(gpu);
         tracing::info!("settings {:?}",settings);
 
         tracing::debug!("Inserting runtime");
@@ -621,10 +623,12 @@ impl AppBuilder {
         let settings = SettingsKey.get(&assets);
         let (cursor_lock_tx, cursor_lock_rx) = flume::unbounded::<bool>();
         let mut world = World::new("main_app", ambient_ecs::WorldContext::App);
-        let gpu = Arc::new(Gpu::with_view(view,metal_layer, true, &settings.render).await?);
-
-
-
+        let mut gpu = Gpu::with_view(view,metal_layer, true, &settings.render).await?;
+        //for testing
+        // gpu.create_renderer().await;
+        // gpu.render();
+        println!("gpu....");
+        let gpu = Arc::new(gpu);
         tracing::info!("settings {:?}",settings);
         println!("print settings {:?}",settings);
         tracing::debug!("Inserting runtime");
@@ -830,14 +834,14 @@ impl AppWrapper{
        });
        *app.world.resource_mut(window_scale_factor()) = scale_factor as f64;
        let mut control_flow = ControlFlow::default();
-       app.handle_static_event(&Event::WindowEvent {
-            window_id,
-            event:
-                WindowEvent::ScaleFactorChanged {
-                    new_inner_size,
-                    scale_factor,
-                },
-        },&mut control_flow);
+    //    app.handle_static_event(&Event::WindowEvent {
+    //         window_id,
+    //         event:
+    //             WindowEvent::ScaleFactorChanged {
+    //                 new_inner_size,
+    //                 scale_factor:scale_factor as f64,
+    //             },
+    //     },&mut control_flow);
        app.handle_static_event(&Event::MainEventsCleared,&mut control_flow);
 
        {
@@ -854,8 +858,13 @@ impl AppWrapper{
             }
             use std::time::{Duration};
             use std::thread::sleep;
+
             loop{
-                sleep(Duration::new(5,0));
+                let mut control_flow = ControlFlow::default();
+                if let Some(app ) =app_c.lock().as_mut(){
+                    app.handle_static_event(&Event::MainEventsCleared,&mut control_flow);
+                }
+                sleep(Duration::new(1,0));
             }
         });
         });

@@ -5,7 +5,7 @@ use ambient_settings::RenderSettings;
 use anyhow::Context;
 use bytemuck::{Pod, Zeroable};
 use glam::{uvec2, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
-use wgpu::{InstanceDescriptor, PresentMode, TextureFormat};
+use wgpu::{InstanceDescriptor, PresentMode, TextureFormat,ColorTargetState,ColorWrites,TextureViewDescriptor};
 use winit::window::Window;
 //use core_graphics::{base::CGFloat, geometry::CGRect};
 pub struct CGRect{
@@ -17,6 +17,19 @@ use objc::runtime::Object;
 use libc::c_void;
 // #[cfg(debug_assertions)]
 pub const DEFAULT_SAMPLE_COUNT: u32 = 1;
+const SHADER: &str = r#"
+@vertex
+fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4<f32> {
+    let x = f32(i32(in_vertex_index) - 1);
+    let y = f32(i32(in_vertex_index & 1u) * 2 - 1);
+    return vec4<f32>(x, y, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4<f32> {
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+}
+"#;
 // #[cfg(not(debug_assertions))]
 // pub const DEFAULT_SAMPLE_COUNT: u32 = 4;
 use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle, HasRawDisplayHandle, HasRawWindowHandle, RawWindowHandle,RawDisplayHandle};
@@ -38,7 +51,14 @@ unsafe impl HasRawDisplayHandle for WrapWindow {
 #[derive(Debug)]
 pub struct GpuKey;
 impl SyncAssetKey<Arc<Gpu>> for GpuKey {}
-
+struct Renderer {
+    render_pipeline: wgpu::RenderPipeline,
+}
+impl std::fmt::Debug for Renderer {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Hi: {}", 1)
+    }
+}
 #[derive(Debug)]
 pub struct Gpu {
     pub surface: Option<wgpu::Surface>,
@@ -49,6 +69,7 @@ pub struct Gpu {
     pub adapter: wgpu::Adapter,
     /// If this is true, we don't need to use blocking device.polls, since they are assumed to be polled elsewhere
     pub will_be_polled: bool,
+    pub renderer: Option<Renderer>,
 }
 
 impl Gpu {
@@ -203,6 +224,7 @@ impl Gpu {
             swapchain_mode,
             adapter,
             will_be_polled,
+            renderer:None
         })
     }
     pub async fn with_config(
@@ -361,9 +383,88 @@ impl Gpu {
             swapchain_mode,
             adapter,
             will_be_polled,
+            renderer:None,
         })
     }
+    pub async fn create_renderer(&mut self) {
+        let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(SHADER.into()),
+        });
 
+        let pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[],
+            push_constant_ranges: &[],
+        });
+
+        let render_pipeline = self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(ColorTargetState {
+                    //format: self.surface.unwrap().view_format,
+                    format:self.swapchain_format.unwrap(),
+                    //format: self.surface_state.as_ref().unwrap().view_format,
+                    blend: None,
+                    write_mask: ColorWrites::all(),
+                })],
+                //targets: &[],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
+
+        self.renderer = Some(Renderer {
+            render_pipeline,
+        });
+    }
+    pub fn render(&mut self) {
+
+        if let  (Some(surface),Some(renderer)) = (&self.surface,&self.renderer) {
+            let render_texture = surface.get_current_texture().unwrap();
+            let render_texture_view = render_texture.texture.create_view(&TextureViewDescriptor::default());
+
+            let mut encoder = self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            {
+                //let t = (self.last_time.elapsed().as_secs_f64() / 5.0).sin();
+                let t = 0.6;
+                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &render_texture_view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.0,
+                                g: t,
+                                b: 1.0 - t,
+                                a: 1.0,
+                            }),
+                            store: true,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                });
+                rpass.set_pipeline(&renderer.render_pipeline);
+                rpass.draw(0..3, 0..1);
+            }
+
+            self.queue.submit(Some(encoder.finish()));
+
+            render_texture.present();
+        }
+    }
     pub fn resize(&self, size: winit::dpi::PhysicalSize<u32>) {
         if let Some(surface) = &self.surface {
             if size.width > 0 && size.height > 0 {
