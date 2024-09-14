@@ -5,7 +5,6 @@ use lazy_static::lazy_static;
 use std::sync::{Arc,Mutex};
 #[cfg(target_os = "android")]
 use android_activity::AndroidApp;
-#[cfg(target_os = "android")]
 lazy_static!{
     //pub static ref ANDROID_APP :Arc<Mutex<Option<AndroidApp>>> = Arc::new(Mutex::new(None));
     pub static ref DIRECTORY :Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
@@ -18,19 +17,42 @@ pub fn init(android:AndroidApp){
     *DIRECTORY.lock().unwrap() = Some(path);
     //*ANDROID_APP.lock().unwrap() = Some(android);
 }
-#[cfg(target_os = "android")]
+#[cfg(target_os = "ios")]
+use objc::runtime::{Object, Class};
+#[cfg(target_os = "ios")]
+use objc::{msg_send, sel, sel_impl};
+use std::ffi::CString;
+use std::ffi::CStr;
+#[cfg(target_os = "ios")]
+pub fn init(){
+    let path = unsafe {
+        // Get the main bundle
+        let ns_bundle: *mut Object = msg_send![Class::get("NSBundle").unwrap(), mainBundle];
+
+        // Get the resource path as an NSString
+        let ns_string: *mut Object = msg_send![ns_bundle, resourcePath];
+
+        if ns_string.is_null() {
+            return None;
+        }
+
+        // Convert NSString to a Rust string
+        let c_str: *const libc::c_char = msg_send![ns_string, UTF8String];
+        let path = CStr::from_ptr(c_str).to_string_lossy().into_owned();
+
+        Some(PathBuf::from(path))
+    };
+    *DIRECTORY.lock().unwrap() = path;
+}
+
 pub fn dirs()->PathBuf{
-    // if let Some(ref a)=*ANDROID_APP.lock().unwrap(){
-    //     a.clone().internal_data_path().unwrap()
-    // }else{
-    //     PathBuf::new()
-    // }
     if let Some(ref a)=*DIRECTORY.lock().unwrap(){
         a.clone()
     }else{
         PathBuf::new()
     }
 }
+
 pub fn settings_path() -> PathBuf {
     #[cfg(target_os = "android")]
     {
